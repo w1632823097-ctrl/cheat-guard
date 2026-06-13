@@ -1,22 +1,6 @@
 import { app, BrowserWindow, globalShortcut, ipcMain } from 'electron';
-import * as path from 'path';
 
-let mainWindow: BrowserWindow | null = null;
 let overlayWindow: BrowserWindow | null = null;
-
-function createMainWindow() {
-  mainWindow = new BrowserWindow({
-    width: 800,
-    height: 600,
-    webPreferences: {
-      nodeIntegration: true,
-      contextIsolation: false,
-    },
-  });
-
-  mainWindow.loadFile('src/renderer/index.html');
-  mainWindow.on('closed', () => { mainWindow = null; });
-}
 
 function createOverlayWindow() {
   overlayWindow = new BrowserWindow({
@@ -29,7 +13,7 @@ function createOverlayWindow() {
     alwaysOnTop: true,
     skipTaskbar: true,
     resizable: false,
-    focusable: false,
+    focusable: true,
     hasShadow: false,
     titleBarStyle: 'hidden',
     useContentSize: true,
@@ -46,7 +30,6 @@ function createOverlayWindow() {
 }
 
 app.whenReady().then(() => {
-  createMainWindow();
   createOverlayWindow();
 
   globalShortcut.register('CommandOrControl+Enter', () => {
@@ -62,7 +45,7 @@ app.whenReady().then(() => {
   });
 
   app.on('activate', () => {
-    if (BrowserWindow.getAllWindows().length === 0) createMainWindow();
+    if (!overlayWindow) createOverlayWindow();
   });
 });
 

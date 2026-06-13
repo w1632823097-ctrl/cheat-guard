@@ -275,6 +275,57 @@
       color: #ef4444;
     }
     .btn-toggle.stop:hover { background: rgba(239, 68, 68, 0.3); }
+
+    .overlay-input-area {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      padding: 8px 16px;
+      border-top: 1px solid rgba(75, 85, 99, 0.3);
+    }
+
+    .overlay-input {
+      flex: 1;
+      padding: 6px 10px;
+      border: 1px solid rgba(75, 85, 99, 0.5);
+      border-radius: 6px;
+      background: rgba(31, 41, 55, 0.5);
+      color: #e5e7eb;
+      font-size: 13px;
+      outline: none;
+      transition: border-color 0.2s;
+      pointer-events: auto;
+    }
+
+    .overlay-input::placeholder {
+      color: #6b7280;
+    }
+
+    .overlay-input:focus {
+      border-color: rgba(16, 185, 129, 0.5);
+    }
+
+    .btn-send {
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      width: 32px;
+      height: 32px;
+      border: none;
+      border-radius: 6px;
+      background: rgba(16, 185, 129, 0.2);
+      color: #10b981;
+      cursor: pointer;
+      flex-shrink: 0;
+      transition: background 0.2s;
+      pointer-events: auto;
+      -webkit-app-region: no-drag;
+      app-region: no-drag;
+    }
+
+    .btn-send:hover {
+      background: rgba(16, 185, 129, 0.3);
+    }
   </style>
 </head>
 <body>
@@ -305,10 +356,20 @@
               <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 11a7 7 0 01-7 7m0 0a7 7 0 01-7-7m7 7v4m0 0H8m4 0h4m-4-8a3 3 0 01-3-3H5a2 2 0 00-2 2v4a2 2 0 002 2h2a2 2 0 002-2v-4z" />
             </svg>
           </div>
-          <p class="empty-text">按 Cmd/Ctrl+Enter 触发 AI 提示</p>
-          <p class="empty-hint">或等待自动检测问题</p>
+          <p class="empty-text">在下方输入框提问</p>
+          <p class="empty-hint">或按 Cmd/Ctrl+Enter 触发 AI 提示</p>
         </div>
         <div class="response-list" id="responseList" style="display: none;"></div>
+      </div>
+
+      <!-- 输入区域 -->
+      <div class="overlay-input-area">
+        <input type="text" id="userInput" class="overlay-input" placeholder="输入问题..." />
+        <button id="sendBtn" class="btn-send">
+          <svg width="16" height="16" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 19l9 2-9-18-9 18 9-2zm0 0v-8" />
+          </svg>
+        </button>
       </div>
 
       <!-- 底部 -->
@@ -403,6 +464,23 @@
     });
 
     updateUI();
+
+    // 输入发送逻辑
+    const userInput = document.getElementById('userInput');
+    const sendBtn = document.getElementById('sendBtn');
+
+    function sendMessage() {
+      const text = userInput.value.trim();
+      if (!text) return;
+      addResponse(`[你]: ${text}`);
+      userInput.value = '';
+      // TODO: 这里后续对接 AI 接口
+    }
+
+    sendBtn.addEventListener('click', sendMessage);
+    userInput.addEventListener('keydown', (e) => {
+      if (e.key === 'Enter') sendMessage();
+    });
   </script>
 </body>
 </html>
