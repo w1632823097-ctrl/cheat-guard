@@ -1,5 +1,6 @@
 import { app, BrowserWindow, globalShortcut, ipcMain } from 'electron';
 import * as path from 'path';
+import { setWindowInvisible, isWDAvailable } from './native/wda-wrapper';
 
 let overlayWindow: BrowserWindow | null = null;
 
@@ -74,6 +75,23 @@ function createOverlayWindow() {
     overlayWindow?.show();
     overlayWindow?.setTitle('');
     overlayWindow?.setSkipTaskbar(true);
+
+    // 核心：应用 WDA 使窗口在屏幕捕获中不可见
+    if (process.platform === 'win32' && isWDAvailable()) {
+      try {
+        const hwnd = overlayWindow?.getNativeWindowHandle();
+        if (hwnd) {
+          const success = setWindowInvisible(hwnd);
+          if (success) {
+            // WDA wrapper already logged success
+          } else {
+            console.warn('[WDA] Failed to set window invisible');
+          }
+        }
+      } catch (err) {
+        console.error('[WDA] Error applying WDA:', err);
+      }
+    }
   });
 
   overlayWindow.on('closed', () => { overlayWindow = null; });
