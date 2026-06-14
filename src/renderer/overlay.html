@@ -7,480 +7,771 @@
   <style>
     * { margin: 0; padding: 0; box-sizing: border-box; }
 
-    /* 关键：body 默认不响应鼠标事件，实现点击穿透 */
     body {
       font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
       background: transparent;
       overflow: hidden;
       color: #e5e7eb;
-      pointer-events: none;
       user-select: none;
     }
 
-    /* 只有需要交互的元素才响应鼠标 */
-    .overlay-card,
-    .drag-handle,
-    button,
-    input {
-      pointer-events: auto;
-    }
-
-    .overlay-container {
+    /* 整个窗口容器 */
+    .window-wrapper {
       width: 100%;
       height: 100vh;
-      padding: 8px;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: flex-start;
+      padding-top: 20px;
+    }
+
+    /* ===== 工具条 - 液态玻璃 ===== */
+    .toolbar {
+      display: flex;
+      align-items: center;
+      gap: 12px;
+      padding: 8px 16px;
+      background: linear-gradient(135deg, rgba(255,255,255,0.08), rgba(255,255,255,0.03));
+      backdrop-filter: blur(24px) saturate(180%);
+      -webkit-backdrop-filter: blur(24px) saturate(180%);
+      border-radius: 9999px;
+      border: 1px solid rgba(255, 255, 255, 0.1);
+      box-shadow: 
+        0 0 0 1px rgba(255,255,255,0.05) inset,
+        0 4px 24px rgba(0, 0, 0, 0.3),
+        0 1px 2px rgba(0, 0, 0, 0.2);
+      cursor: move;
+      position: relative;
+      z-index: 10;
+      animation: toolbarIn 0.6s cubic-bezier(0.22, 1, 0.36, 1);
+      transition: all 0.35s cubic-bezier(0.22, 1, 0.36, 1);
+    }
+
+    .toolbar:hover {
+      background: linear-gradient(135deg, rgba(255,255,255,0.12), rgba(255,255,255,0.05));
+      border-color: rgba(255, 255, 255, 0.18);
+      box-shadow: 
+        0 0 0 1px rgba(255,255,255,0.08) inset,
+        0 8px 32px rgba(0, 0, 0, 0.5),
+        0 0 0 1px rgba(99, 102, 241, 0.15),
+        0 0 24px rgba(99, 102, 241, 0.1);
+      transform: translateY(-1px);
+    }
+
+    /* 鼠标在子组件上时，工具条恢复默认 */
+    .toolbar:has(.ask-btn:hover),
+    .toolbar:has(.close-btn:hover),
+    .toolbar:has(.logo:hover) {
+      background: linear-gradient(135deg, rgba(255,255,255,0.08), rgba(255,255,255,0.03));
+      border-color: rgba(255, 255, 255, 0.1);
+      box-shadow: 0 0 0 1px rgba(255,255,255,0.05) inset, 0 4px 24px rgba(0, 0, 0, 0.3);
+      transform: translateY(0);
+    }
+
+    @keyframes toolbarIn {
+      from {
+        opacity: 0;
+        transform: translateY(-20px) scale(0.9);
+      }
+      to {
+        opacity: 1;
+        transform: translateY(0) scale(1);
+      }
+    }
+
+    /* Logo - 液态玻璃 */
+    .logo {
+      width: 36px;
+      height: 36px;
+      border-radius: 50%;
+      background: linear-gradient(135deg, rgba(99, 102, 241, 0.2), rgba(139, 92, 246, 0.1));
+      backdrop-filter: blur(8px);
       display: flex;
       align-items: center;
       justify-content: center;
+      flex-shrink: 0;
+      border: 1px solid rgba(255, 255, 255, 0.12);
+      pointer-events: none;
+      animation: logoPulse 3s ease-in-out infinite;
+      box-shadow: 0 0 0 1px rgba(255,255,255,0.05) inset;
     }
 
-    .overlay-card {
+    @keyframes logoPulse {
+      0%, 100% { box-shadow: 0 0 0 0 rgba(139, 92, 246, 0.3), 0 0 0 1px rgba(255,255,255,0.05) inset; }
+      50% { box-shadow: 0 0 0 8px rgba(139, 92, 246, 0), 0 0 0 1px rgba(255,255,255,0.05) inset; }
+    }
+
+    .logo svg {
+      width: 20px;
+      height: 20px;
+      color: #a78bfa;
+    }
+
+    /* Ask 按钮 - 液态玻璃 */
+    .ask-btn {
+      display: flex;
+      align-items: center;
+      gap: 6px;
+      padding: 8px 20px;
+      border-radius: 9999px;
+      border: 1px solid rgba(139, 92, 246, 0.3);
+      background: linear-gradient(135deg, rgba(99, 102, 241, 0.5), rgba(139, 92, 246, 0.35));
+      backdrop-filter: blur(8px);
+      color: white;
+      font-size: 14px;
+      font-weight: 500;
+      cursor: pointer;
+      transition: all 0.35s cubic-bezier(0.22, 1, 0.36, 1);
+      outline: none;
+      position: relative;
+      overflow: hidden;
+      box-shadow: 0 2px 8px rgba(99, 102, 241, 0.2);
+    }
+
+    .ask-btn::before {
+      content: '';
+      position: absolute;
+      top: 0;
+      left: -100%;
       width: 100%;
-      max-width: 400px;
-      background: rgba(17, 24, 39, 0.95);
-      backdrop-filter: blur(10px);
-      border: 1px solid rgba(75, 85, 99, 0.5);
-      border-radius: 12px;
-      box-shadow: 0 25px 50px -12px rgba(0, 0, 0, 0.5);
+      height: 100%;
+      background: linear-gradient(90deg, transparent, rgba(255,255,255,0.15), transparent);
+      transition: left 0.5s ease;
+    }
+
+    .ask-btn:hover::before {
+      left: 100%;
+    }
+
+    .ask-btn:hover {
+      background: linear-gradient(135deg, rgba(99, 102, 241, 0.7), rgba(139, 92, 246, 0.55));
+      box-shadow: 0 0 24px rgba(139, 92, 246, 0.4), 0 4px 16px rgba(99, 102, 241, 0.3);
+      transform: translateY(-1px);
+      border-color: rgba(139, 92, 246, 0.5);
+    }
+
+    .ask-btn:active {
+      transform: scale(0.95) translateY(0);
+    }
+
+    .ask-btn .sparkle {
+      width: 14px;
+      height: 14px;
+      animation: sparkleRotate 4s linear infinite;
+    }
+
+    @keyframes sparkleRotate {
+      from { transform: rotate(0deg); }
+      to { transform: rotate(360deg); }
+    }
+
+    /* 关闭按钮 - 液态玻璃 */
+    .close-btn {
+      width: 36px;
+      height: 36px;
+      border-radius: 50%;
+      border: 1px solid rgba(255, 255, 255, 0.1);
+      background: rgba(255, 255, 255, 0.04);
+      backdrop-filter: blur(8px);
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      cursor: pointer;
+      transition: all 0.35s cubic-bezier(0.22, 1, 0.36, 1);
+      flex-shrink: 0;
+      outline: none;
+      position: relative;
       overflow: hidden;
     }
 
-    /* 拖动区域 - 使用 -webkit-app-region: drag 让系统处理拖动 */
-    .drag-handle {
-      width: 100%;
-      height: 32px;
-      cursor: move;
-      display: flex;
-      align-items: center;
-      justify-content: center;
-      gap: 4px;
-      padding: 8px;
-      background: rgba(17, 24, 39, 0.8);
-      border-bottom: 1px solid rgba(75, 85, 99, 0.5);
-      -webkit-app-region: drag;
-      app-region: drag;
-    }
-
-    .drag-handle:hover {
-      background: rgba(31, 41, 55, 0.9);
-    }
-
-    .drag-handle .drag-dot {
-      width: 4px; height: 4px;
+    .close-btn::before {
+      content: '';
+      position: absolute;
+      inset: 0;
       border-radius: 50%;
-      background: #9ca3af;
+      background: radial-gradient(circle, rgba(239, 68, 68, 0.3), transparent 70%);
+      opacity: 0;
+      transform: scale(0.5);
+      transition: all 0.3s ease;
     }
 
-    .drag-handle .drag-text {
-      font-size: 10px;
-      color: #9ca3af;
-      margin-left: 4px;
+    .close-btn:hover::before {
+      opacity: 1;
+      transform: scale(1.2);
     }
 
-    .overlay-header {
+    .close-btn:hover {
+      border-color: rgba(239, 68, 68, 0.5);
+      box-shadow: 0 0 20px rgba(239, 68, 68, 0.15);
+      transform: rotate(90deg) scale(1.05);
+    }
+
+    .close-btn:active {
+      transform: rotate(90deg) scale(0.9);
+    }
+
+    .close-btn svg {
+      width: 16px;
+      height: 16px;
+      transition: all 0.3s ease;
+      position: relative;
+      z-index: 1;
+    }
+
+    /* ===== 咨询面板 - 液态玻璃风格 ===== */
+    .chat-panel {
+      width: 380px;
+      max-height: 0;
+      overflow: hidden;
+      opacity: 0;
+      margin-top: 12px;
+      /* 多层玻璃叠加 */
+      background: 
+        linear-gradient(135deg, rgba(255,255,255,0.06) 0%, rgba(255,255,255,0.02) 50%, rgba(0,0,0,0.08) 100%);
+      backdrop-filter: blur(24px) saturate(180%);
+      -webkit-backdrop-filter: blur(24px) saturate(180%);
+      /* 玻璃边缘：渐变描边 */
+      border: 1px solid transparent;
+      border-radius: 20px;
+      background-clip: padding-box;
+      /* 多层阴影营造景深 */
+      box-shadow: 
+        0 0 0 1px rgba(255, 255, 255, 0.08) inset,
+        0 1px 3px rgba(0, 0, 0, 0.2),
+        0 8px 32px rgba(0, 0, 0, 0.4),
+        0 24px 64px rgba(0, 0, 0, 0.5);
+      transition: max-height 0.5s cubic-bezier(0.22, 1, 0.36, 1), opacity 0.4s ease, transform 0.4s ease;
+      display: flex;
+      flex-direction: column;
+      transform: translateY(-16px) scale(0.94);
+      transform-origin: top center;
+    }
+
+    .chat-panel.expanded {
+      max-height: 500px;
+      opacity: 1;
+      transform: translateY(0) scale(1);
+    }
+
+    /* 面板头部 */
+    .panel-header {
       display: flex;
       align-items: center;
       justify-content: space-between;
-      padding: 16px;
-      border-bottom: 1px solid rgba(75, 85, 99, 0.5);
+      padding: 16px 18px;
+      border-bottom: 1px solid rgba(255, 255, 255, 0.06);
+      flex-shrink: 0;
+      position: relative;
+      overflow: hidden;
     }
 
-    .overlay-title {
+    /* 头部光晕 */
+    .panel-header::after {
+      content: '';
+      position: absolute;
+      top: -30%;
+      left: 20%;
+      width: 60%;
+      height: 160%;
+      background: radial-gradient(ellipse at center, rgba(99, 102, 241, 0.08), transparent 70%);
+      pointer-events: none;
+    }
+
+    .panel-title {
       display: flex;
       align-items: center;
-      gap: 8px;
+      gap: 10px;
+      font-size: 14px;
+      font-weight: 600;
+      color: rgba(255, 255, 255, 0.85);
+      position: relative;
+      z-index: 1;
     }
 
-    .status-dot {
-      width: 8px; height: 8px;
+    .panel-title .dot {
+      width: 8px;
+      height: 8px;
       border-radius: 50%;
-      background: #10b981;
+      background: #22c55e;
+      box-shadow: 0 0 8px rgba(34, 197, 94, 0.6), 0 0 20px rgba(34, 197, 94, 0.2);
       animation: pulse 2s infinite;
     }
 
     @keyframes pulse {
-      0%, 100% { opacity: 1; }
-      50% { opacity: 0.5; }
+      0%, 100% { opacity: 1; box-shadow: 0 0 8px rgba(34, 197, 94, 0.6); }
+      50% { opacity: 0.6; box-shadow: 0 0 16px rgba(34, 197, 94, 0.3); }
     }
 
-    .overlay-title-text {
-      font-size: 14px;
-      font-weight: 600;
-      color: #d1d5db;
+    .panel-count {
+      font-size: 11px;
+      color: rgba(255, 255, 255, 0.35);
+      font-weight: 500;
+      letter-spacing: 0.02em;
+      position: relative;
+      z-index: 1;
     }
 
-    .overlay-count {
-      font-size: 12px;
-      color: #6b7280;
-    }
-
-    .overlay-content {
-      padding: 16px;
-      min-height: 200px;
-      max-height: 400px;
+    /* 消息区域 */
+    .chat-messages {
+      flex: 1;
       overflow-y: auto;
+      padding: 14px 18px;
+      min-height: 200px;
     }
 
-    .empty-state {
+    .chat-messages::-webkit-scrollbar {
+      width: 4px;
+    }
+
+    .chat-messages::-webkit-scrollbar-track {
+      background: transparent;
+    }
+
+    .chat-messages::-webkit-scrollbar-thumb {
+      background: rgba(255, 255, 255, 0.1);
+      border-radius: 99px;
+    }
+
+    .empty-chat {
       text-align: center;
-      padding: 40px 20px;
+      padding: 48px 20px 36px;
+      color: rgba(255, 255, 255, 0.35);
+      position: relative;
     }
 
-    .empty-icon {
-      width: 48px; height: 48px;
+    .empty-chat .empty-icon {
+      width: 56px;
+      height: 56px;
       margin: 0 auto 16px;
-      background: rgba(55, 65, 81, 0.5);
+      background: linear-gradient(135deg, rgba(99, 102, 241, 0.12), rgba(139, 92, 246, 0.08));
+      border: 1px solid rgba(255, 255, 255, 0.06);
       border-radius: 50%;
       display: flex;
       align-items: center;
       justify-content: center;
+      position: relative;
+      animation: float 4s ease-in-out infinite;
     }
 
-    .empty-icon svg {
-      width: 24px; height: 24px;
-      color: #9ca3af;
+    /* 图标光晕 */
+    .empty-chat .empty-icon::after {
+      content: '';
+      position: absolute;
+      inset: -4px;
+      border-radius: 50%;
+      background: radial-gradient(circle, rgba(99, 102, 241, 0.15) 0%, transparent 70%);
+      animation: iconGlow 3s ease-in-out infinite;
     }
 
-    .empty-text {
+    @keyframes iconGlow {
+      0%, 100% { opacity: 0.5; transform: scale(1); }
+      50% { opacity: 1; transform: scale(1.1); }
+    }
+
+    @keyframes float {
+      0%, 100% { transform: translateY(0); }
+      50% { transform: translateY(-6px); }
+    }
+
+    .empty-chat .empty-icon svg {
+      width: 24px;
+      height: 24px;
+      color: rgba(139, 92, 246, 0.6);
+      position: relative;
+      z-index: 1;
+    }
+
+    .empty-chat p {
       font-size: 14px;
-      color: #9ca3af;
-      margin-bottom: 4px;
+      margin-bottom: 6px;
+      color: rgba(255, 255, 255, 0.5);
+      font-weight: 500;
     }
 
-    .empty-hint {
+    .empty-chat span {
       font-size: 12px;
-      color: #6b7280;
+      color: rgba(255, 255, 255, 0.2);
     }
 
-    .response-list {
+    .message-list {
       display: flex;
       flex-direction: column;
-      gap: 12px;
+      gap: 10px;
     }
 
-    .response-item {
-      background: rgba(31, 41, 55, 0.5);
-      border: 1px solid rgba(75, 85, 99, 0.3);
-      border-radius: 8px;
-      padding: 12px;
-    }
-
-    .response-text {
-      font-size: 13px;
-      line-height: 1.6;
-      color: #e5e7eb;
-      margin-bottom: 8px;
-    }
-
-    .response-meta {
-      display: flex;
-      align-items: center;
-      justify-content: space-between;
-      padding-top: 8px;
-      border-top: 1px solid rgba(75, 85, 99, 0.3);
-    }
-
-    .confidence { font-size: 11px; color: #6b7280; }
-    .timestamp { font-size: 11px; color: #4b5563; }
-
-    .overlay-footer {
-      display: flex;
-      align-items: center;
-      justify-content: space-between;
+    .message-item {
+      background: linear-gradient(135deg, rgba(255,255,255,0.06), rgba(255,255,255,0.02));
+      border: 1px solid rgba(255, 255, 255, 0.06);
+      border-radius: 14px;
       padding: 12px 16px;
-      border-top: 1px solid rgba(75, 85, 99, 0.5);
+      animation: messageIn 0.4s cubic-bezier(0.22, 1, 0.36, 1);
+      transition: all 0.3s cubic-bezier(0.22, 1, 0.36, 1);
+      position: relative;
     }
 
-    .opacity-control {
+    /* 消息hover光效 */
+    .message-item::before {
+      content: '';
+      position: absolute;
+      inset: 0;
+      border-radius: 14px;
+      background: linear-gradient(135deg, rgba(99, 102, 241, 0.08), transparent 50%);
+      opacity: 0;
+      transition: opacity 0.3s ease;
+      pointer-events: none;
+    }
+
+    .message-item:hover::before {
+      opacity: 1;
+    }
+
+    .message-item:hover {
+      background: rgba(255, 255, 255, 0.08);
+      border-color: rgba(255, 255, 255, 0.12);
+      transform: translateX(3px) scale(1.01);
+      box-shadow: 0 4px 16px rgba(0, 0, 0, 0.2);
+    }
+
+    .message-item:first-child {
+      animation: messageInFirst 0.6s cubic-bezier(0.22, 1, 0.36, 1);
+    }
+
+    @keyframes messageIn {
+      from {
+        opacity: 0;
+        transform: translateY(8px);
+      }
+      to {
+        opacity: 1;
+        transform: translateY(0);
+      }
+    }
+
+    @keyframes messageInFirst {
+      from {
+        opacity: 0;
+        transform: scale(0.95) translateY(8px);
+      }
+      to {
+        opacity: 1;
+        transform: scale(1) translateY(0);
+      }
+    }
+
+    .message-item .msg-text {
+      font-size: 13px;
+      line-height: 1.7;
+      color: rgba(255, 255, 255, 0.8);
+    }
+
+    .message-item .msg-meta {
       display: flex;
       align-items: center;
-      gap: 6px;
-    }
-
-    .opacity-label {
+      justify-content: space-between;
+      margin-top: 8px;
+      padding-top: 8px;
+      border-top: 1px solid rgba(255, 255, 255, 0.05);
       font-size: 11px;
-      color: #9ca3af;
+      color: rgba(255, 255, 255, 0.3);
     }
 
-    .opacity-slider {
-      width: 80px;
-      height: 4px;
-      -webkit-appearance: none;
-      appearance: none;
-      background: #4b5563;
-      border-radius: 2px;
-      outline: none;
-    }
-
-    .opacity-slider::-webkit-slider-thumb {
-      -webkit-appearance: none;
-      appearance: none;
-      width: 12px;
-      height: 12px;
-      border-radius: 50%;
-      background: #10b981;
-      cursor: pointer;
-    }
-
-    .opacity-value {
-      font-size: 11px;
-      color: #d1d5db;
-      min-width: 32px;
-    }
-
-    .status-info {
+    /* 输入区域 - 液态玻璃 */
+    .chat-input-area {
       display: flex;
       align-items: center;
-      gap: 6px;
+      gap: 10px;
+      padding: 12px 18px;
+      border-top: 1px solid rgba(255, 255, 255, 0.06);
+      flex-shrink: 0;
+      position: relative;
     }
 
-    .status-indicator {
-      width: 6px; height: 6px;
-      border-radius: 50%;
-      background: #10b981;
-    }
-
-    .status-text { font-size: 12px; color: #9ca3af; }
-
-    .actions {
-      display: flex;
-      gap: 8px;
-    }
-
-    .btn {
-      padding: 4px 12px;
-      border: none;
-      border-radius: 4px;
-      font-size: 12px;
-      cursor: pointer;
-      transition: background 0.2s;
-      -webkit-app-region: no-drag;
-      app-region: no-drag;
-    }
-
-    .btn-clear {
-      background: rgba(55, 65, 81, 0.5);
-      color: #d1d5db;
-    }
-    .btn-clear:hover { background: rgba(75, 85, 99, 0.5); }
-
-    .btn-toggle {
-      background: rgba(16, 185, 129, 0.2);
-      color: #10b981;
-    }
-    .btn-toggle:hover { background: rgba(16, 185, 129, 0.3); }
-
-    .btn-toggle.stop {
-      background: rgba(239, 68, 68, 0.2);
-      color: #ef4444;
-    }
-    .btn-toggle.stop:hover { background: rgba(239, 68, 68, 0.3); }
-
-    .overlay-input-area {
-      display: flex;
-      align-items: center;
-      gap: 8px;
-      padding: 8px 16px;
-      border-top: 1px solid rgba(75, 85, 99, 0.3);
-    }
-
-    .overlay-input {
+    .chat-input {
       flex: 1;
-      padding: 6px 10px;
-      border: 1px solid rgba(75, 85, 99, 0.5);
-      border-radius: 6px;
-      background: rgba(31, 41, 55, 0.5);
-      color: #e5e7eb;
+      padding: 10px 14px;
+      border: 1px solid rgba(255, 255, 255, 0.08);
+      border-radius: 12px;
+      background: rgba(255, 255, 255, 0.04);
+      backdrop-filter: blur(8px);
+      -webkit-backdrop-filter: blur(8px);
+      color: rgba(255, 255, 255, 0.85);
       font-size: 13px;
       outline: none;
-      transition: border-color 0.2s;
-      pointer-events: auto;
+      transition: all 0.35s cubic-bezier(0.22, 1, 0.36, 1);
     }
 
-    .overlay-input::placeholder {
-      color: #6b7280;
+    .chat-input:focus {
+      border-color: rgba(99, 102, 241, 0.4);
+      background: rgba(255, 255, 255, 0.07);
+      box-shadow: 
+        0 0 0 3px rgba(99, 102, 241, 0.08),
+        0 0 20px rgba(99, 102, 241, 0.1);
     }
 
-    .overlay-input:focus {
-      border-color: rgba(16, 185, 129, 0.5);
+    .chat-input::placeholder {
+      color: rgba(255, 255, 255, 0.25);
+      transition: color 0.3s ease;
     }
 
-    .btn-send {
+    .chat-input:focus::placeholder {
+      color: rgba(255, 255, 255, 0.15);
+    }
+
+    .send-btn {
       display: flex;
       align-items: center;
       justify-content: center;
-      width: 32px;
-      height: 32px;
-      border: none;
-      border-radius: 6px;
-      background: rgba(16, 185, 129, 0.2);
-      color: #10b981;
+      width: 38px;
+      height: 38px;
+      border: 1px solid rgba(255, 255, 255, 0.1);
+      border-radius: 12px;
+      background: linear-gradient(135deg, rgba(99, 102, 241, 0.15), rgba(139, 92, 246, 0.1));
+      backdrop-filter: blur(8px);
+      color: rgba(139, 92, 246, 0.7);
       cursor: pointer;
       flex-shrink: 0;
-      transition: background 0.2s;
-      pointer-events: auto;
-      -webkit-app-region: no-drag;
-      app-region: no-drag;
+      transition: all 0.35s cubic-bezier(0.22, 1, 0.36, 1);
+      outline: none;
+      position: relative;
+      overflow: hidden;
     }
 
-    .btn-send:hover {
-      background: rgba(16, 185, 129, 0.3);
+    .send-btn::before {
+      content: '';
+      position: absolute;
+      inset: 0;
+      background: linear-gradient(135deg, rgba(99, 102, 241, 0.5), rgba(139, 92, 246, 0.4));
+      opacity: 0;
+      transition: opacity 0.35s ease;
+      border-radius: 12px;
+    }
+
+    .send-btn:hover {
+      transform: translateY(-2px) scale(1.05);
+      border-color: rgba(139, 92, 246, 0.3);
+      box-shadow: 0 4px 20px rgba(99, 102, 241, 0.25);
+      color: #fff;
+    }
+
+    .send-btn:hover::before {
+      opacity: 1;
+    }
+
+    .send-btn:active {
+      transform: translateY(0) scale(0.93);
+      box-shadow: 0 2px 8px rgba(99, 102, 241, 0.15);
+    }
+
+    .send-btn svg {
+      width: 16px;
+      height: 16px;
+      position: relative;
+      z-index: 1;
+      transition: transform 0.35s cubic-bezier(0.22, 1, 0.36, 1);
+    }
+
+    .send-btn:hover svg {
+      transform: translateX(2px) rotate(-10deg);
     }
   </style>
 </head>
 <body>
-  <div class="overlay-container">
-    <div class="overlay-card">
-      <!-- 拖动区域 -->
-      <div class="drag-handle">
-        <div class="drag-dot"></div>
-        <div class="drag-dot"></div>
-        <div class="drag-dot"></div>
-        <span class="drag-text">拖动移动窗口</span>
+  <div class="window-wrapper">
+    <!-- 工具条 -->
+    <div class="toolbar" id="toolbar">
+      <!-- Logo -->
+      <div class="logo">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+          <circle cx="12" cy="12" r="10"/>
+          <path d="M2 12h20"/>
+          <path d="M12 2a15.3 15.3 0 0 1 4 10 15.3 15.3 0 0 1-4 10 15.3 15.3 0 0 1-4-10 15.3 15.3 0 0 1 4-10z"/>
+        </svg>
       </div>
 
-      <!-- 头部 -->
-      <div class="overlay-header">
-        <div class="overlay-title">
-          <div class="status-dot"></div>
-          <span class="overlay-title-text">CheatGuard AI</span>
+      <!-- Ask 按钮 -->
+      <button class="ask-btn" id="askBtn">
+        <svg class="sparkle" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+          <path d="M9.937 15.5A2.766 2.766 0 0 1 8.5 17.062"/>
+          <path d="M12 2a4.5 4.5 0 0 0 0 9 4.5 4.5 0 0 0 0-9z"/>
+          <path d="M12 13c-3.866 0-7 3.134-7 7"/>
+          <path d="M16 17a2 2 0 1 1-4 0"/>
+          <path d="M20 2a2 2 0 1 1-4 0"/>
+          <path d="M22 8a2 2 0 1 1-4 0"/>
+        </svg>
+        <span id="askText">Ask</span>
+      </button>
+
+      <!-- 关闭按钮 -->
+      <button class="close-btn" id="closeBtn" title="退出">
+        <svg viewBox="0 0 24 24" fill="white">
+          <rect x="5" y="5" width="14" height="14" rx="3"/>
+        </svg>
+      </button>
+    </div>
+
+    <!-- 咨询面板 -->
+    <div class="chat-panel" id="chatPanel">
+      <div class="panel-header">
+        <div class="panel-title">
+          <div class="dot"></div>
+          <span>CheatGuard AI</span>
         </div>
-        <span class="overlay-count" id="responseCount">0 条提示</span>
+        <span class="panel-count" id="msgCount">0 条消息</span>
       </div>
 
-      <!-- 内容区域 -->
-      <div class="overlay-content">
-        <div class="empty-state" id="emptyState">
+      <div class="chat-messages" id="chatMessages">
+        <div class="empty-chat" id="emptyChat">
           <div class="empty-icon">
             <svg fill="none" stroke="currentColor" viewBox="0 0 24 24">
-              <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 11a7 7 0 01-7 7m0 0a7 7 0 01-7-7m7 7v4m0 0H8m4 0h4m-4-8a3 3 0 01-3-3H5a2 2 0 00-2 2v4a2 2 0 002 2h2a2 2 0 002-2v-4z" />
+              <path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.5" d="M12 20.25c4.97 0 9-3.694 9-8.25s-4.03-8.25-9-8.25S3 7.444 3 12c0 2.104.859 4.023 2.273 5.48.432.447.74 1.04.586 1.641a4.483 4.483 0 0 1-.923 1.785A5.969 5.969 0 0 0 6 21c1.282 0 2.47-.402 3.445-1.087.81.22 1.668.337 2.555.337Z"/>
             </svg>
           </div>
-          <p class="empty-text">在下方输入框提问</p>
-          <p class="empty-hint">或按 Cmd/Ctrl+Enter 触发 AI 提示</p>
+          <p>在下方输入框提问</p>
+          <span>AI 将为您提供实时帮助</span>
         </div>
-        <div class="response-list" id="responseList" style="display: none;"></div>
+        <div class="message-list" id="messageList" style="display: none;"></div>
       </div>
 
-      <!-- 输入区域 -->
-      <div class="overlay-input-area">
-        <input type="text" id="userInput" class="overlay-input" placeholder="输入问题..." />
-        <button id="sendBtn" class="btn-send">
-          <svg width="16" height="16" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 19l9 2-9-18-9 18 9-2zm0 0v-8" />
+      <div class="chat-input-area">
+        <input type="text" class="chat-input" id="chatInput" placeholder="输入问题..." />
+        <button class="send-btn" id="sendBtn">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+            <line x1="22" y1="2" x2="11" y2="13"/>
+            <polygon points="22 2 15 22 11 13 2 9 22 2"/>
           </svg>
         </button>
-      </div>
-
-      <!-- 底部 -->
-      <div class="overlay-footer">
-        <div class="opacity-control">
-          <span class="opacity-label">透明度</span>
-          <input type="range" id="opacitySlider" min="20" max="100" value="95" class="opacity-slider" />
-          <span class="opacity-value" id="opacityValue">95%</span>
-        </div>
-        <div class="actions">
-          <button class="btn btn-clear" id="clearBtn">清空</button>
-          <button class="btn btn-toggle" id="toggleBtn">开始</button>
-        </div>
       </div>
     </div>
   </div>
 
   <script>
-    let isListening = false;
-    let responses = [];
+    let isExpanded = false;
+    let messages = [];
 
-    const responseCount = document.getElementById('responseCount');
-    const emptyState = document.getElementById('emptyState');
-    const responseList = document.getElementById('responseList');
-    const statusIndicator = document.getElementById('statusIndicator');
-    const statusText = document.getElementById('statusText');
-    const clearBtn = document.getElementById('clearBtn');
-    const toggleBtn = document.getElementById('toggleBtn');
+    const toolbar = document.getElementById('toolbar');
+    const askBtn = document.getElementById('askBtn');
+    const askText = document.getElementById('askText');
+    const closeBtn = document.getElementById('closeBtn');
+    const chatPanel = document.getElementById('chatPanel');
+    const chatInput = document.getElementById('chatInput');
+    const sendBtn = document.getElementById('sendBtn');
+    const messageList = document.getElementById('messageList');
+    const emptyChat = document.getElementById('emptyChat');
+    const msgCount = document.getElementById('msgCount');
 
-    function addResponse(text, confidence = 0.85) {
-      responses.unshift({ id: Date.now(), text, confidence, timestamp: new Date() });
-      if (responses.length > 10) responses.pop();
-      updateUI();
+    // Ask / Hide 切换
+    askBtn.addEventListener('click', (e) => {
+      e.stopPropagation();
+      isExpanded = !isExpanded;
+      if (isExpanded) {
+        chatPanel.classList.add('expanded');
+        askText.textContent = 'Hide';
+        setTimeout(() => {
+          chatInput.focus();
+          // 请求主进程聚焦窗口
+          if (window.require) {
+            const { ipcRenderer } = window.require('electron');
+            ipcRenderer.send('focus-input');
+          }
+        }, 350);
+      } else {
+        chatPanel.classList.remove('expanded');
+        askText.textContent = 'Ask';
+      }
+    });
+
+    // 关闭应用
+    closeBtn.addEventListener('click', (e) => {
+      e.stopPropagation();
+      if (window.require) {
+        const { ipcRenderer } = window.require('electron');
+        ipcRenderer.send('quit-app');
+      }
+    });
+
+    // 拖动功能
+    let isDragging = false;
+
+    toolbar.addEventListener('mousedown', (e) => {
+      if (e.target.closest('.ask-btn') || e.target.closest('.close-btn')) return;
+      isDragging = true;
+      if (window.require) {
+        const { ipcRenderer } = window.require('electron');
+        ipcRenderer.send('start-drag');
+      }
+    });
+
+    document.addEventListener('mouseup', () => {
+      if (isDragging) {
+        isDragging = false;
+        if (window.require) {
+          const { ipcRenderer } = window.require('electron');
+          ipcRenderer.send('stop-drag');
+        }
+      }
+    });
+
+    // 发送消息
+    function sendMessage() {
+      const text = chatInput.value.trim();
+      if (!text) return;
+
+      messages.push({
+        id: Date.now(),
+        text: text,
+        timestamp: new Date()
+      });
+
+      chatInput.value = '';
+      updateMessages();
     }
 
-    function updateUI() {
-      responseCount.textContent = `${responses.length} 条提示`;
-      if (responses.length === 0) {
-        emptyState.style.display = 'block';
-        responseList.style.display = 'none';
+    function updateMessages() {
+      msgCount.textContent = `${messages.length} 条消息`;
+
+      if (messages.length === 0) {
+        emptyChat.style.display = 'block';
+        messageList.style.display = 'none';
       } else {
-        emptyState.style.display = 'none';
-        responseList.style.display = 'flex';
-        responseList.innerHTML = responses.map(r => `
-          <div class="response-item">
-            <p class="response-text">${r.text}</p>
-            <div class="response-meta">
-              <span class="confidence">置信度: ${(r.confidence * 100).toFixed(0)}%</span>
-              <span class="timestamp">${r.timestamp.toLocaleTimeString()}</span>
+        emptyChat.style.display = 'none';
+        messageList.style.display = 'flex';
+        messageList.innerHTML = messages.map(m => `
+          <div class="message-item">
+            <p class="msg-text">${m.text}</p>
+            <div class="msg-meta">
+              <span>${m.timestamp.toLocaleTimeString()}</span>
             </div>
           </div>
         `).join('');
       }
     }
 
-    clearBtn.addEventListener('click', () => { responses = []; updateUI(); });
-
-    toggleBtn.addEventListener('click', () => {
-      isListening = !isListening;
-      if (isListening) {
-        toggleBtn.textContent = '停止';
-        toggleBtn.classList.add('stop');
-        statusText.textContent = '监听中...';
-        statusIndicator.style.background = '#10b981';
-        setTimeout(() => {
-          if (isListening) addResponse('示例 AI 提示。在实际应用中，这里会显示 AI 生成的实时提示内容。');
-        }, 2000);
-      } else {
-        toggleBtn.textContent = '开始';
-        toggleBtn.classList.remove('stop');
-        statusText.textContent = '就绪';
-        statusIndicator.style.background = '#6b7280';
-      }
-    });
-
-    if (window.require) {
-      const { ipcRenderer } = window.require('electron');
-      ipcRenderer.on('update-text', (event, text) => addResponse(text));
-    }
-
-    // 透明度调节
-    const opacitySlider = document.getElementById('opacitySlider');
-    const opacityValue = document.getElementById('opacityValue');
-
-    opacitySlider.addEventListener('input', () => {
-      const val = parseInt(opacitySlider.value);
-      opacityValue.textContent = val + '%';
+    sendBtn.addEventListener('click', sendMessage);
+    chatInput.addEventListener('focus', () => {
       if (window.require) {
         const { ipcRenderer } = window.require('electron');
-        ipcRenderer.send('set-overlay-opacity', val / 100);
+        ipcRenderer.send('focus-input');
       }
     });
 
-    updateUI();
-
-    // 输入发送逻辑
-    const userInput = document.getElementById('userInput');
-    const sendBtn = document.getElementById('sendBtn');
-
-    function sendMessage() {
-      const text = userInput.value.trim();
-      if (!text) return;
-      addResponse(`[你]: ${text}`);
-      userInput.value = '';
-      // TODO: 这里后续对接 AI 接口
-    }
-
-    sendBtn.addEventListener('click', sendMessage);
-    userInput.addEventListener('keydown', (e) => {
+    chatInput.addEventListener('keydown', (e) => {
       if (e.key === 'Enter') sendMessage();
     });
+
+    // 接收主进程消息
+    if (window.require) {
+      const { ipcRenderer } = window.require('electron');
+
+      ipcRenderer.on('update-text', (event, text) => {
+        messages.push({
+          id: Date.now(),
+          text: text,
+          timestamp: new Date()
+        });
+        updateMessages();
+      });
+    }
   </script>
 </body>
 </html>
