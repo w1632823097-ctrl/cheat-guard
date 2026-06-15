@@ -6,13 +6,14 @@ release/
 .DS_Store
 Thumbs.db
 
+# Python virtual environment
+.venv/
+
+# Models (large binary files)
+models/
+
 # Temporary audio files generated during transcription
 temp/
-
-# Whisper models (large binary files, download separately)
-models/whisper/ggml-*.bin
-models/whisper/whisper-bin-x64.zip
-models/whisper/Release/
 
 # Environment variables (API keys, etc.)
 .env
@@ -27,4 +28,3 @@ models/whisper/Release/
 *.node
 *.obj
 build/
-
