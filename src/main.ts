@@ -18,7 +18,7 @@ function createOverlayWindow() {
     resizable: false,
     minimizable: false,
     maximizable: false,
-    focusable: false,
+    focusable: true,
     hasShadow: false,
     show: false,
     thickFrame: false,
@@ -40,34 +40,16 @@ function createOverlayWindow() {
     const { nativeImage } = require('electron');
     overlayWindow.setIcon(nativeImage.createEmpty());
 
-    // 核心：拦截 WM_NCACTIVATE，阻止系统绘制非激活状态标题栏
-    overlayWindow.hookWindowMessage(0x0086, (wParam) => {
-      if (wParam.readInt32LE(0) === 0) return true;
-      return undefined;
+    // 拦截 WM_NCACTIVATE，阻止系统绘制非激活状态标题栏
+    overlayWindow.hookWindowMessage(0x0086, () => {
+      // Always return true to prevent Windows from drawing non-client area
+      overlayWindow?.setBackgroundColor('#00000000');
+      return true;
     });
-    
-    // 窗口失去焦点时强制重绘
-    overlayWindow.on('blur', () => {
-      if (overlayWindow) {
-        const bounds = overlayWindow.getBounds();
-        // 微小移动触发重绘
-        overlayWindow.setBounds({
-          x: bounds.x + 1,
-          y: bounds.y,
-          width: bounds.width,
-          height: bounds.height
-        });
-        setTimeout(() => {
-          if (overlayWindow) {
-            overlayWindow.setBounds({
-              x: bounds.x,
-              y: bounds.y,
-              width: bounds.width,
-              height: bounds.height
-            });
-          }
-        }, 10);
-      }
+
+    // 焦点恢复时强制透明背景
+    overlayWindow.on('focus', () => {
+      overlayWindow?.setBackgroundColor('#00000000');
     });
   }
 
@@ -97,8 +79,18 @@ function createOverlayWindow() {
   overlayWindow.on('closed', () => { overlayWindow = null; });
 }
 
-app.whenReady().then(() => {
+app.whenReady().then(async () => {
   createOverlayWindow();
+
+  // Initialize audio capture IPC handlers (dynamic import)
+  try {
+    const { initAudioCapture } = await import('./audio/audio-capture');
+    if (overlayWindow) {
+      initAudioCapture(overlayWindow);
+    }
+  } catch (err) {
+    console.warn('[Audio] Failed to initialize audio capture:', err);
+  }
 
   globalShortcut.register('CommandOrControl+Enter', () => {
     if (overlayWindow) {
@@ -192,32 +184,26 @@ ipcMain.on('start-drag', () => {
       
       try {
         const currentPoint = require('electron').screen.getCursorScreenPoint();
-        // 检查鼠标是否真正移动了（阈值为1像素，过滤抖动）
-        const moveX = Math.abs(currentPoint.x - lastMousePos.x);
-        const moveY = Math.abs(currentPoint.y - lastMousePos.y);
         
-        if (moveX >= 1 || moveY >= 1) {
-          // 计算鼠标移动的距离，并应用到窗口位置
-          const deltaX = currentPoint.x - startMousePos.x;
-          const deltaY = currentPoint.y - startMousePos.y;
-          overlayWindow.setPosition(
-            Math.round(startWindowPos.x + deltaX),
-            Math.round(startWindowPos.y + deltaY)
-          );
-          lastMousePos = { x: currentPoint.x, y: currentPoint.y };
+        // 如果鼠标位置没有变化，不更新窗口位置
+        if (currentPoint.x === lastMousePos.x && currentPoint.y === lastMousePos.y) {
+          return;
         }
-      } catch (err) {
-        console.error('Drag interval error:', err);
-        if (dragInterval) {
-          clearInterval(dragInterval);
-          dragInterval = null;
-        }
-        isDragging = false;
+        
+        lastMousePos = { x: currentPoint.x, y: currentPoint.y };
+        
+        // 计算新的窗口位置
+        const newX = startWindowPos.x + (currentPoint.x - startMousePos.x);
+        const newY = startWindowPos.y + (currentPoint.y - startMousePos.y);
+        
+        // 更新窗口位置
+        overlayWindow.setPosition(newX, newY, false); // false = 不使用动画
+      } catch (e) {
+        // 忽略可能的错误
       }
-    }, 16);
-  } catch (err) {
-    console.error('Start drag error:', err);
-    isDragging = false;
+    }, 16); // 约 60fps
+  } catch (e) {
+    console.error('Drag start error:', e);
   }
 });
 
@@ -225,9 +211,9 @@ ipcMain.on('stop-drag', () => {
   clearDragInterval();
 });
 
-// 调节覆盖层窗口透明度
-ipcMain.on('set-overlay-opacity', (event, value: number) => {
+// 设置透明度
+ipcMain.on('set-overlay-opacity', (event, opacity: number) => {
   if (overlayWindow) {
-    overlayWindow.setOpacity(value);
+    overlayWindow.setOpacity(opacity);
   }
 });

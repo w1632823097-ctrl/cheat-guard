@@ -19,4 +19,19 @@ contextBridge.exposeInMainWorld('electronAPI', {
   once: (channel: string, callback: (...args: unknown[]) => void) => {
     ipcRenderer.once(channel, (_event, ...args) => callback(...args));
   },
+
+  // Audio capture APIs
+  audio: {
+    startRecording: () => ipcRenderer.invoke('audio:start-recording'),
+    stopRecording: () => ipcRenderer.invoke('audio:stop-recording'),
+    checkWhisper: () => ipcRenderer.invoke('audio:check-whisper'),
+    sendChunk: (chunk: ArrayBuffer) => ipcRenderer.send('audio:chunk', chunk),
+  },
+
+  // Real-time transcription events
+  onTranscriptionUpdate: (callback: (text: string) => void) => {
+    const wrapper = (_event: Electron.IpcRendererEvent, text: string) => callback(text);
+    ipcRenderer.on('transcription-update', wrapper);
+    return () => ipcRenderer.removeListener('transcription-update', wrapper);
+  },
 });

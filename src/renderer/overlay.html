@@ -32,6 +32,15 @@
         <span id="askText">Ask</span>
       </button>
 
+      <!-- 录音按钮 -->
+      <button class="record-btn" id="recordBtn" title="录音">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+          <path d="M12 2a3 3 0 0 0-3 3v7a3 3 0 0 0 6 0V5a3 3 0 0 0-3-3Z"/>
+          <path d="M19 10v2a7 7 0 0 1-14 0v-2"/>
+          <line x1="12" x2="12" y1="19" y2="22"/>
+        </svg>
+      </button>
+
       <!-- 关闭按钮 -->
       <button class="close-btn" id="closeBtn" title="退出">
         <svg viewBox="0 0 24 24" fill="white">
@@ -67,6 +76,16 @@
           <span>AI 将为您提供实时帮助</span>
         </div>
         <div class="message-list" id="messageList" style="display: none;"></div>
+        <!-- 转录文本展示区域 -->
+        <div class="transcription-area" id="transcriptionArea" style="display: none;">
+          <div class="transcription-header">
+            <div class="recording-indicator">
+              <div class="recording-dot"></div>
+              <span>正在录音...</span>
+            </div>
+          </div>
+          <div class="transcription-text" id="transcriptionText"></div>
+        </div>
       </div>
 
       <div class="chat-input-area">

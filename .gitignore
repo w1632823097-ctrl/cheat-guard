@@ -5,3 +5,26 @@ release/
 *.log
 .DS_Store
 Thumbs.db
+
+# Temporary audio files generated during transcription
+temp/
+
+# Whisper models (large binary files, download separately)
+models/whisper/ggml-*.bin
+models/whisper/whisper-bin-x64.zip
+models/whisper/Release/
+
+# Environment variables (API keys, etc.)
+.env
+.env.local
+.env.*.local
+
+# IDE
+.vscode/
+.idea/
+
+# Build artifacts
+*.node
+*.obj
+build/
+
