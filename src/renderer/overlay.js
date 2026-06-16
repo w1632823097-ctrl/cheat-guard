@@ -39,14 +39,19 @@ askBtn.addEventListener('click', (e) => {
     chatPanel.classList.add('expanded');
     askText.textContent = 'Hide';
     setTimeout(() => {
-      chatInput.focus();
       if (window.electronAPI) {
         window.electronAPI.send('focus-input');
       }
+      setTimeout(() => {
+        chatInput.focus();
+      }, 50);
     }, 350);
   } else {
     chatPanel.classList.remove('expanded');
     askText.textContent = 'Ask';
+    if (window.electronAPI) {
+      window.electronAPI.send('blur-input');
+    }
   }
 });
 
@@ -360,6 +365,12 @@ sendBtn.addEventListener('click', sendMessage);
 chatInput.addEventListener('focus', () => {
   if (window.electronAPI) {
     window.electronAPI.send('focus-input');
+  }
+});
+
+chatInput.addEventListener('blur', () => {
+  if (window.electronAPI && !isExpanded) {
+    window.electronAPI.send('blur-input');
   }
 });
 
