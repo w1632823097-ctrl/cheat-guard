@@ -89,3 +89,78 @@ export function setWindowVisible(hwndBuffer: Buffer): boolean {
 export function isWDAvailable(): boolean {
   return process.platform === 'win32' && loadLib() !== null;
 }
+
+// ===== 去掉窗口标题栏边框，彻底消除 focus/blur 时白条闪烁 =====
+
+const GWL_STYLE = -16;
+const WS_CAPTION = 0x00C00000;
+const WS_THICKFRAME = 0x00040000;
+const WS_BORDER = 0x00800000;
+const WS_DLGFRAME = 0x00400000;
+const WS_POPUP = 0x80000000;
+const WS_CHILD = 0x40000000;
+const WS_MINIMIZEBOX = 0x00020000;
+const WS_MAXIMIZEBOX = 0x00010000;
+const WS_SYSMENU = 0x00080000;
+const SWP_FRAMECHANGED = 0x0020;
+const SWP_NOMOVE = 0x0002;
+const SWP_NOSIZE = 0x0001;
+const SWP_NOZORDER = 0x0004;
+const SWP_NOACTIVATE = 0x0010;
+const SWP_SHOWWINDOW = 0x0040;
+
+let _SetWindowLong: any = null;
+let _GetWindowLong: any = null;
+let _SetWindowPos: any = null;
+
+function loadStyleFuncs() {
+  const lib = loadLib();
+  if (!lib) return false;
+  if (!_SetWindowLong) {
+    _SetWindowLong = lib.func('int64 SetWindowLongW(int64 hWnd, int32 nIndex, int64 dwNewLong)');
+  }
+  if (!_GetWindowLong) {
+    _GetWindowLong = lib.func('int64 GetWindowLongW(int64 hWnd, int32 nIndex)');
+  }
+  if (!_SetWindowPos) {
+    _SetWindowPos = lib.func('bool SetWindowPos(int64 hWnd, int64 hWndInsertAfter, int32 X, int32 Y, int32 cx, int32 cy, uint32 uFlags)');
+  }
+  return true;
+}
+
+/**
+ * 移除窗口标题栏和边框，消除 focus/blur 时白条闪烁
+ * @param hwndBuffer - 窗口句柄的 Buffer
+ */
+export function removeWindowCaption(hwndBuffer: Buffer): void {
+  if (!loadStyleFuncs()) return;
+
+  try {
+    const hwnd = hwndBuffer.readBigInt64LE(0);
+    const style = _GetWindowLong(hwnd, GWL_STYLE);
+
+    // 去掉标题栏、边框、系统菜单、最小化/最大化按钮
+    const newStyle =
+      (style & ~BigInt(WS_CAPTION)) &
+      ~BigInt(WS_THICKFRAME) &
+      ~BigInt(WS_BORDER) &
+      ~BigInt(WS_DLGFRAME) &
+      ~BigInt(WS_MINIMIZEBOX) &
+      ~BigInt(WS_MAXIMIZEBOX) &
+      ~BigInt(WS_SYSMENU);
+
+    _SetWindowLong(hwnd, GWL_STYLE, newStyle);
+
+    // 强制重绘窗口框架
+    _SetWindowPos(
+      hwnd,
+      0n,
+      0, 0, 0, 0,
+      SWP_NOMOVE | SWP_NOSIZE | SWP_NOZORDER | SWP_NOACTIVATE | SWP_FRAMECHANGED | SWP_SHOWWINDOW
+    );
+
+    console.log('[WDA] Window caption removed (no title bar flash)');
+  } catch (err) {
+    console.error('[WDA] removeWindowCaption failed:', err);
+  }
+}

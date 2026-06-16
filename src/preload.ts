@@ -34,4 +34,31 @@ contextBridge.exposeInMainWorld('electronAPI', {
     ipcRenderer.on('transcription-update', wrapper);
     return () => ipcRenderer.removeListener('transcription-update', wrapper);
   },
+
+  // LLM chat APIs
+  llm: {
+    chat: (sessionId: string, message: string, systemPrompt?: string) =>
+      ipcRenderer.invoke('llm:chat', sessionId, message, systemPrompt),
+    chatStream: (sessionId: string, message: string, systemPrompt?: string) =>
+      ipcRenderer.invoke('llm:chat-stream', sessionId, message, systemPrompt),
+    clearSession: (sessionId: string) =>
+      ipcRenderer.send('llm:clear-session', sessionId),
+    setConfig: (config: { apiKey: string; baseURL?: string; model?: string }) =>
+      ipcRenderer.invoke('llm:set-config', config),
+    getHistory: (sessionId: string) =>
+      ipcRenderer.invoke('llm:get-history', sessionId),
+  },
+
+  // LLM streaming chunk listener
+  onLLMChunk: (callback: (chunk: string) => void) => {
+    const wrapper = (_event: Electron.IpcRendererEvent, chunk: string) => callback(chunk);
+    ipcRenderer.on('llm:chunk', wrapper);
+    return () => ipcRenderer.removeListener('llm:chunk', wrapper);
+  },
+
+  onLLMDone: (callback: () => void) => {
+    const wrapper = () => callback();
+    ipcRenderer.on('llm:done', wrapper);
+    return () => ipcRenderer.removeListener('llm:done', wrapper);
+  },
 });

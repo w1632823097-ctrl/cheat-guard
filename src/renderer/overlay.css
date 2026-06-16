@@ -333,6 +333,7 @@ body {
 /* ===== 咨询面板 - 液态玻璃风格 ===== */
 .chat-panel {
   width: 380px;
+  height: 0;
   max-height: 0;
   overflow: hidden;
   opacity: 0;
@@ -348,7 +349,7 @@ body {
     0 1px 3px rgba(0, 0, 0, 0.2),
     0 8px 32px rgba(0, 0, 0, 0.4),
     0 24px 64px rgba(0, 0, 0, 0.5);
-  transition: max-height 0.5s cubic-bezier(0.22, 1, 0.36, 1), opacity 0.4s ease, transform 0.4s ease;
+  transition: height 0.5s cubic-bezier(0.22, 1, 0.36, 1), opacity 0.4s ease, transform 0.4s ease;
   display: flex;
   flex-direction: column;
   transform: translateY(-16px) scale(0.94);
@@ -356,7 +357,8 @@ body {
 }
 
 .chat-panel.expanded {
-  max-height: 500px;
+  height: 380px;
+  max-height: 380px;
   opacity: 1;
   transform: translateY(0) scale(1);
 }
@@ -513,83 +515,156 @@ body {
 .message-list {
   display: flex;
   flex-direction: column;
-  gap: 10px;
+  gap: 4px;
+  width: 100%;
+  padding: 0 10px;
 }
 
-.message-item {
-  background: linear-gradient(135deg, rgba(255,255,255,0.06), rgba(255,255,255,0.02));
-  border: 1px solid rgba(255, 255, 255, 0.06);
-  border-radius: 14px;
-  padding: 12px 16px;
-  animation: messageIn 0.4s cubic-bezier(0.22, 1, 0.36, 1);
-  transition: all 0.3s cubic-bezier(0.22, 1, 0.36, 1);
+/* ===== 消息行：头像 + 气泡（微信风格） ===== */
+.message-row {
+  display: flex;
+  align-items: flex-start;
+  gap: 8px;
+  max-width: 88%;
+  animation: msgSlideIn 0.3s ease-out;
+}
+
+.message-row.user {
+  align-self: flex-end;
+  flex-direction: row;
+}
+
+.message-row.assistant {
+  align-self: flex-start;
+  flex-direction: row;
+}
+
+@keyframes msgSlideIn {
+  from { opacity: 0; transform: translateY(6px); }
+  to   { opacity: 1; transform: translateY(0); }
+}
+
+/* 头像 */
+.msg-avatar {
+  flex-shrink: 0;
+  width: 32px;
+  height: 32px;
+  margin-top: 2px;
+}
+
+.msg-avatar svg {
+  width: 32px;
+  height: 32px;
+}
+
+/* 消息主体（气泡 + 时间） */
+.msg-body {
+  display: flex;
+  flex-direction: column;
+  min-width: 0;
   position: relative;
 }
 
-/* 消息hover光效 */
-.message-item::before {
-  content: '';
-  position: absolute;
-  inset: 0;
-  border-radius: 14px;
-  background: linear-gradient(135deg, rgba(99, 102, 241, 0.08), transparent 50%);
-  opacity: 0;
-  transition: opacity 0.3s ease;
-  pointer-events: none;
+.message-row.user .msg-body {
+  align-items: flex-end;
 }
 
-.message-item:hover::before {
+.message-row.assistant .msg-body {
+  align-items: flex-start;
+}
+
+/* 气泡 */
+.msg-bubble {
+  padding: 8px 12px;
+  border-radius: 14px;
+  font-size: 13px;
+  line-height: 1.55;
+  word-break: break-word;
+  position: relative;
+}
+
+/* 用户气泡 — 右边蓝色 */
+.message-row.user .msg-bubble {
+  background: linear-gradient(135deg, #6366f1, #7c3aed);
+  color: #fff;
+  border-bottom-right-radius: 4px;
+}
+
+/* AI 气泡 — 左边暗色 */
+.message-row.assistant .msg-bubble {
+  background: rgba(255, 255, 255, 0.07);
+  color: rgba(255, 255, 255, 0.85);
+  border: 1px solid rgba(255, 255, 255, 0.05);
+  border-bottom-left-radius: 4px;
+}
+
+/* 时间 */
+.msg-time {
+  font-size: 10px;
+  color: rgba(255, 255, 255, 0.2);
+  margin-top: 2px;
+  padding: 0 4px;
+}
+
+/* 流式消息 */
+.message-row.streaming .msg-bubble {
+  box-shadow: 0 0 10px rgba(34, 197, 94, 0.12);
+}
+
+/* 错误消息 */
+.message-row.error .msg-bubble {
+  background: rgba(239, 68, 68, 0.12);
+  border-color: rgba(239, 68, 68, 0.2);
+  color: rgba(252, 165, 165, 0.85);
+}
+
+/* 流式光标 */
+.streaming-cursor {
+  display: inline-block;
+  width: 2px;
+  height: 15px;
+  background: rgba(34, 197, 94, 0.7);
+  vertical-align: text-bottom;
+  margin-left: 1px;
+  border-radius: 1px;
+  animation: cursorBlink 0.8s ease-in-out infinite;
+}
+
+@keyframes cursorBlink {
+  0%, 100% { opacity: 1; }
+  50% { opacity: 0; }
+}
+
+/* 复制按钮 */
+.msg-copy-btn {
+  position: absolute;
+  bottom: -18px;
+  left: 4px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 20px;
+  height: 16px;
+  background: none;
+  border: none;
+  color: rgba(255, 255, 255, 0.15);
+  cursor: pointer;
+  opacity: 0;
+  transition: opacity 0.2s, color 0.2s;
+  padding: 0;
+}
+
+.message-row.assistant:hover .msg-copy-btn {
   opacity: 1;
 }
 
-.message-item:hover {
-  background: rgba(255, 255, 255, 0.08);
-  border-color: rgba(255, 255, 255, 0.12);
-  transform: translateX(3px) scale(1.01);
-  box-shadow: 0 4px 16px rgba(0, 0, 0, 0.2);
+.msg-copy-btn:hover {
+  color: rgba(255, 255, 255, 0.5);
 }
 
-.message-item:first-child {
-  animation: messageInFirst 0.6s cubic-bezier(0.22, 1, 0.36, 1);
-}
-
-@keyframes messageIn {
-  from {
-    opacity: 0;
-    transform: translateY(8px);
-  }
-  to {
-    opacity: 1;
-    transform: translateY(0);
-  }
-}
-
-@keyframes messageInFirst {
-  from {
-    opacity: 0;
-    transform: scale(0.95) translateY(8px);
-  }
-  to {
-    opacity: 1;
-    transform: scale(1) translateY(0);
-  }
-}
-
-.message-item .msg-text {
-  font-size: 13px;
-  line-height: 1.7;
-  color: rgba(255, 255, 255, 0.8);
-}
-
-.message-item .msg-meta {
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  margin-top: 8px;
-  padding-top: 8px;
-  border-top: 1px solid rgba(255, 255, 255, 0.05);
-  font-size: 11px;
-  color: rgba(255, 255, 255, 0.3);
+.msg-copy-btn.copied {
+  color: #34d399;
+  opacity: 1;
 }
 
 /* 转录区域 */
@@ -735,4 +810,183 @@ body {
 
 .send-btn:hover svg {
   transform: translateX(2px) rotate(-10deg);
+}
+
+/* 发送按钮加载状态 */
+.send-btn.loading {
+  pointer-events: none;
+  opacity: 0.5;
+}
+
+.send-btn.loading svg {
+  animation: sendPulse 1s ease-in-out infinite;
+}
+
+@keyframes sendPulse {
+  0%, 100% { opacity: 0.5; transform: scale(1); }
+  50% { opacity: 1; transform: scale(1.1); }
+}
+
+/* 输入框禁用状态 */
+.chat-input:disabled {
+  opacity: 0.4;
+  cursor: not-allowed;
+}
+
+/* ===== 代码块样式 ===== */
+
+.code-block {
+  margin: 6px 0;
+  padding: 10px 12px;
+  background: rgba(0, 0, 0, 0.4);
+  border: 1px solid rgba(255, 255, 255, 0.06);
+  border-radius: 8px;
+  font-family: 'Fira Code', 'Cascadia Code', 'JetBrains Mono', 'Consolas', monospace;
+  font-size: 11px;
+  line-height: 1.6;
+  overflow-x: auto;
+  white-space: pre-wrap;
+  word-break: break-word;
+}
+
+.code-block code {
+  color: rgba(255, 255, 255, 0.85);
+  background: none;
+  padding: 0;
+}
+
+.inline-code {
+  padding: 1px 6px;
+  background: rgba(255, 255, 255, 0.08);
+  border-radius: 4px;
+  font-family: 'Fira Code', 'Cascadia Code', 'JetBrains Mono', 'Consolas', monospace;
+  font-size: 11px;
+  color: #c4b5fd;
+}
+
+/* 用户气泡内的代码适配 */
+.message-row.user .msg-bubble .inline-code {
+  background: rgba(0, 0, 0, 0.25);
+  color: rgba(255, 255, 255, 0.9);
+}
+
+.message-row.user .msg-bubble .code-block {
+  background: rgba(0, 0, 0, 0.3);
+  border-color: rgba(0, 0, 0, 0.2);
+}
+
+.message-row.user .msg-bubble .md-link {
+  color: rgba(255, 255, 255, 0.85);
+  border-bottom-color: rgba(255, 255, 255, 0.4);
+}
+
+.message-row.user .msg-bubble .code-lang {
+  color: rgba(255, 255, 255, 0.4);
+  border-bottom-color: rgba(255, 255, 255, 0.1);
+}
+
+/* ===== Markdown 渲染样式 ===== */
+
+/* 标题 */
+.md-heading {
+  margin: 8px 0 4px;
+  font-weight: 600;
+  line-height: 1.4;
+  color: rgba(255, 255, 255, 0.9);
+}
+
+.md-h2 {
+  font-size: 16px;
+  padding-bottom: 4px;
+  border-bottom: 1px solid rgba(255, 255, 255, 0.08);
+}
+
+.md-h3 {
+  font-size: 14px;
+}
+
+.md-h4 {
+  font-size: 13px;
+  color: rgba(255, 255, 255, 0.75);
+}
+
+/* 粗体 / 斜体 */
+.msg-bubble strong {
+  color: rgba(255, 255, 255, 0.95);
+  font-weight: 600;
+}
+
+.msg-bubble em {
+  color: rgba(255, 255, 255, 0.7);
+  font-style: italic;
+}
+
+/* 链接 */
+.md-link {
+  color: #a78bfa;
+  text-decoration: none;
+  border-bottom: 1px solid rgba(139, 92, 246, 0.3);
+  transition: all 0.2s ease;
+}
+
+.md-link:hover {
+  color: #c4b5fd;
+  border-bottom-color: rgba(196, 181, 253, 0.5);
+}
+
+/* 分隔线 */
+.md-hr {
+  border: none;
+  height: 1px;
+  background: linear-gradient(90deg, transparent, rgba(255, 255, 255, 0.08), transparent);
+  margin: 8px 0;
+}
+
+/* 列表 */
+.md-list {
+  margin: 4px 0;
+  padding-left: 16px;
+  list-style: none;
+}
+
+.md-li {
+  position: relative;
+  padding: 2px 0;
+  font-size: 13px;
+  color: rgba(255, 255, 255, 0.75);
+}
+
+.md-li::before {
+  content: '•';
+  position: absolute;
+  left: -14px;
+  color: rgba(139, 92, 246, 0.5);
+}
+
+/* 引用块 */
+.md-blockquote {
+  margin: 6px 0;
+  padding: 8px 12px;
+  border-left: 3px solid rgba(139, 92, 246, 0.35);
+  background: rgba(139, 92, 246, 0.05);
+  border-radius: 0 6px 6px 0;
+}
+
+.md-blockquote p {
+  margin: 0;
+  font-size: 13px;
+  color: rgba(255, 255, 255, 0.6);
+  font-style: italic;
+}
+
+/* 代码语言标签 */
+.code-lang {
+  display: block;
+  padding: 4px 14px 6px;
+  font-size: 10px;
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+  color: rgba(139, 92, 246, 0.6);
+  border-bottom: 1px solid rgba(255, 255, 255, 0.04);
+  margin: -12px -14px 8px;
 }

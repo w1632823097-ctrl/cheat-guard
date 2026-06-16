@@ -20,6 +20,12 @@ temp/
 .env.local
 .env.*.local
 
+# Config file (contains API keys)
+config.json
+
+# Test scripts
+test-llm.ts
+
 # IDE
 .vscode/
 .idea/
