@@ -128,39 +128,3 @@ function loadStyleFuncs() {
   return true;
 }
 
-/**
- * 移除窗口标题栏和边框，消除 focus/blur 时白条闪烁
- * @param hwndBuffer - 窗口句柄的 Buffer
- */
-export function removeWindowCaption(hwndBuffer: Buffer): void {
-  if (!loadStyleFuncs()) return;
-
-  try {
-    const hwnd = hwndBuffer.readBigInt64LE(0);
-    const style = _GetWindowLong(hwnd, GWL_STYLE);
-
-    // 去掉标题栏、边框、系统菜单、最小化/最大化按钮
-    const newStyle =
-      (style & ~BigInt(WS_CAPTION)) &
-      ~BigInt(WS_THICKFRAME) &
-      ~BigInt(WS_BORDER) &
-      ~BigInt(WS_DLGFRAME) &
-      ~BigInt(WS_MINIMIZEBOX) &
-      ~BigInt(WS_MAXIMIZEBOX) &
-      ~BigInt(WS_SYSMENU);
-
-    _SetWindowLong(hwnd, GWL_STYLE, newStyle);
-
-    // 强制重绘窗口框架
-    _SetWindowPos(
-      hwnd,
-      0n,
-      0, 0, 0, 0,
-      SWP_NOMOVE | SWP_NOSIZE | SWP_NOZORDER | SWP_NOACTIVATE | SWP_FRAMECHANGED | SWP_SHOWWINDOW
-    );
-
-    console.log('[WDA] Window caption removed (no title bar flash)');
-  } catch (err) {
-    console.error('[WDA] removeWindowCaption failed:', err);
-  }
-}

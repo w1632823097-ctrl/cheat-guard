@@ -1,6 +1,6 @@
 import { app, BrowserWindow, globalShortcut, ipcMain } from 'electron';
 import * as path from 'path';
-import { setWindowInvisible, isWDAvailable, removeWindowCaption } from './native/wda-wrapper';
+import { setWindowInvisible, isWDAvailable } from './native/wda-wrapper';
 import { chat, chatStream, clearSession, setApiConfig, getHistory } from './llm/llm-service';
 
 let overlayWindow: BrowserWindow | null = null;
@@ -85,8 +85,7 @@ function createOverlayWindow() {
           } else {
             console.warn('[WDA] Failed to set window invisible');
           }
-          // 移除标题栏边框，消除 focus/blur 时白条闪烁
-          removeWindowCaption(hwnd);
+          // ignore
         }
       } catch (err) {
         console.error('[WDA] Error applying WDA:', err);
@@ -98,53 +97,6 @@ function createOverlayWindow() {
 }
 
 app.whenReady().then(async () => {
-  // ---- LLM 启动自检：纯 https 直连，排除一切封装 ----
-  try {
-    const fs = await import('fs');
-    const path = await import('path');
-    const https = await import('https');
-
-    const configPath = path.join(process.cwd(), 'config.json');
-    const config = JSON.parse(fs.readFileSync(configPath, 'utf-8')).llm;
-    
-    const payload = JSON.stringify({
-      model: config.model,
-      messages: [{ role: 'user', content: 'ping' }],
-      max_tokens: 10,
-    });
-
-    console.log('[LLM] Self-check: POST', config.baseURL + '/chat/completions');
-    console.log('[LLM] Self-check: key =', config.apiKey.slice(0, 4) + '***' + config.apiKey.slice(-4));
-
-    const result = await new Promise<string>((resolve, reject) => {
-      const u = new URL(config.baseURL + '/chat/completions');
-      const req = https.request({
-        hostname: u.hostname,
-        path: u.pathname + u.search,
-        method: 'POST',
-        headers: {
-          'Authorization': `Bearer ${config.apiKey}`,
-          'Content-Type': 'application/json',
-          'Content-Length': Buffer.byteLength(payload),
-        },
-      }, (res) => {
-        let body = '';
-        res.on('data', (c: Buffer) => body += c.toString());
-        res.on('end', () => {
-          if (res.statusCode === 200) resolve('OK ' + body.slice(0, 100));
-          else reject(new Error(`HTTP ${res.statusCode}: ${body.slice(0, 200)}`));
-        });
-      });
-      req.on('error', reject);
-      req.write(payload);
-      req.end();
-    });
-
-    console.log('[LLM] Startup self-check:', result);
-  } catch (err: any) {
-    console.error('[LLM] Startup self-check FAILED:', err.message);
-  }
-
   createOverlayWindow();
 
   // Initialize audio capture IPC handlers (dynamic import)

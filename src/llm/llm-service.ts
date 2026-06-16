@@ -117,13 +117,8 @@ function httpRequest(endpoint: string, config: LLMConfig, body: object, stream: 
     };
 
     const maskedKey = config.apiKey.length > 8 ? config.apiKey.slice(0, 4) + '***' + config.apiKey.slice(-4) : '***';
-    console.log(`[LLM] → POST ${endpoint}`);
-    console.log(`[LLM]   model: ${config.model}, stream: ${stream}, key: ${maskedKey}`);
-    console.log(`[LLM]   Content-Length: ${Buffer.byteLength(payload)}`);
-    console.log(`[LLM]   body preview:`, payload.slice(0, 200));
 
     const req = mod.request(options, (res) => {
-      console.log(`[LLM] ← ${res.statusCode} ${res.statusMessage}`);
 
       if (res.statusCode !== 200) {
         let errBody = '';
