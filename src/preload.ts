@@ -24,15 +24,31 @@ contextBridge.exposeInMainWorld('electronAPI', {
   audio: {
     startRecording: () => ipcRenderer.invoke('audio:start-recording'),
     stopRecording: () => ipcRenderer.invoke('audio:stop-recording'),
-    checkWhisper: () => ipcRenderer.invoke('audio:check-whisper'),
+    checkStatus: () => ipcRenderer.invoke('audio:check-status'),
     sendChunk: (chunk: ArrayBuffer) => ipcRenderer.send('audio:chunk', chunk),
+    setConfig: (config: Record<string, unknown>) => ipcRenderer.invoke('audio:set-config', config),
   },
 
-  // Real-time transcription events
+  // Transcription events
+  onTranscriptionInterim: (callback: (text: string) => void) => {
+    const wrapper = (_event: Electron.IpcRendererEvent, text: string) => callback(text);
+    ipcRenderer.on('transcription-interim', wrapper);
+    return () => ipcRenderer.removeListener('transcription-interim', wrapper);
+  },
   onTranscriptionUpdate: (callback: (text: string) => void) => {
     const wrapper = (_event: Electron.IpcRendererEvent, text: string) => callback(text);
     ipcRenderer.on('transcription-update', wrapper);
     return () => ipcRenderer.removeListener('transcription-update', wrapper);
+  },
+  onTranscriptionFull: (callback: (fullText: string) => void) => {
+    const wrapper = (_event: Electron.IpcRendererEvent, fullText: string) => callback(fullText);
+    ipcRenderer.on('transcription-full', wrapper);
+    return () => ipcRenderer.removeListener('transcription-full', wrapper);
+  },
+  onASRStateChange: (callback: (state: string, error: string) => void) => {
+    const wrapper = (_event: Electron.IpcRendererEvent, state: string, error: string) => callback(state, error);
+    ipcRenderer.on('asr-state-change', wrapper);
+    return () => ipcRenderer.removeListener('asr-state-change', wrapper);
   },
 
   // LLM chat APIs

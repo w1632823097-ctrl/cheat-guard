@@ -6,6 +6,12 @@ let isLoading = false;
 let streamingMessageId = null;
 const sessionId = 'default';
 
+// 音频捕获相关
+let audioContext = null;
+let mediaStream = null;
+let scriptNode = null;
+let sourceNode = null;
+
 const toolbar = document.getElementById('toolbar');
 const askBtn = document.getElementById('askBtn');
 const askText = document.getElementById('askText');
@@ -62,35 +68,101 @@ recordBtn.addEventListener('click', async (e) => {
   if (!isRecording) {
     isRecording = true;
     recordBtn.classList.add('recording');
-    currentTranscription = '';
     
     if (transcriptionArea) {
       transcriptionArea.style.display = 'flex';
-    }
-    if (transcriptionText) {
-      transcriptionText.textContent = '语音识别功能开发中...';
     }
     
     if (window.electronAPI && window.electronAPI.audio) {
       const result = await window.electronAPI.audio.startRecording();
       console.log('[Audio] Recording started:', result);
+
+      if (result.success) {
+        currentTranscription = '';
+        if (transcriptionText) transcriptionText.textContent = '';
+        const indicator = transcriptionArea?.querySelector('.recording-indicator');
+        const dot = transcriptionArea?.querySelector('.recording-dot');
+        if (indicator) indicator.style.display = 'flex';
+        if (dot) dot.style.display = 'block';
+
+        try {
+          mediaStream = await navigator.mediaDevices.getUserMedia({
+            audio: { channelCount: 1, sampleRate: 16000, echoCancellation: true, noiseSuppression: true }
+          });
+          audioContext = new AudioContext({ sampleRate: 16000 });
+          sourceNode = audioContext.createMediaStreamSource(mediaStream);
+          scriptNode = audioContext.createScriptProcessor(2048, 1, 1);
+
+          scriptNode.onaudioprocess = (event) => {
+            if (!isRecording) return;
+            const rawData = event.inputBuffer.getChannelData(0);
+            const pcmData = new Int16Array(rawData.length);
+            for (let i = 0; i < rawData.length; i++) {
+              const s = Math.max(-1, Math.min(1, rawData[i]));
+              pcmData[i] = s < 0 ? s * 0x8000 : s * 0x7FFF;
+            }
+            window.electronAPI.audio.sendChunk(pcmData.buffer);
+          };
+
+          sourceNode.connect(scriptNode);
+          scriptNode.connect(audioContext.destination);
+          console.log('[Audio] Microphone capture started');
+        } catch (err) {
+          console.error('[Audio] Mic access denied:', err);
+        }
+      }
     }
   } else {
     isRecording = false;
     recordBtn.classList.remove('recording');
-    
-    if (transcriptionText) {
-      transcriptionText.textContent = '转录已停止';
-    }
-    
+
+    const indicator = transcriptionArea?.querySelector('.recording-indicator');
+    const dot = transcriptionArea?.querySelector('.recording-dot');
+    if (indicator) indicator.style.display = 'none';
+    if (dot) dot.style.display = 'none';
+    if (transcriptionText) transcriptionText.textContent = '';
+    // 隐藏整个转录区域
+    if (transcriptionArea) transcriptionArea.style.display = 'none';
+
     if (window.electronAPI && window.electronAPI.audio) {
       try {
         const result = await window.electronAPI.audio.stopRecording();
         console.log('[Audio] Recording stopped:', result);
+
+        if (result.success && result.transcript && result.transcript.trim()) {
+          const transcript = result.transcript.trim();
+          if (transcriptionText) transcriptionText.textContent = '';
+
+          // 和文字输入一样：用户消息 + AI 回复
+          addMessage('user', transcript);
+          setLoading(true);
+
+          try {
+            const chatResult = await window.electronAPI.llm.chatStream(sessionId, transcript);
+            if (!chatResult.success) {
+              const fallbackResult = await window.electronAPI.llm.chat(sessionId, transcript);
+              if (fallbackResult.success) {
+                addMessage('assistant', fallbackResult.data);
+              } else {
+                addMessage('assistant', '请求失败: ' + (fallbackResult.error || '未知错误'), true);
+              }
+              setLoading(false);
+            }
+          } catch (err) {
+            console.error('[Chat] Transcription send error:', err);
+            setLoading(false);
+          }
+        }
       } catch (error) {
         console.error('[Audio] Failed to stop recording:', error);
       }
     }
+
+    if (scriptNode) { scriptNode.disconnect(); scriptNode = null; }
+    if (sourceNode) { sourceNode.disconnect(); sourceNode = null; }
+    if (audioContext) { audioContext.close().catch(() => {}); audioContext = null; }
+    if (mediaStream) { mediaStream.getTracks().forEach(t => t.stop()); mediaStream = null; }
+    console.log('[Audio] Microphone capture stopped');
   }
 });
 
@@ -133,51 +205,30 @@ function escapeHtml(text) {
 function renderMessageContent(text) {
   let html = escapeHtml(text);
 
-  // 先处理代码块 ```，避免内部语法被后续规则干扰
   html = html.replace(/```(\w*)\n?([\s\S]*?)```/g, (_m, lang, code) => {
     const label = lang ? `<span class="code-lang">${lang}</span>` : '';
     return `<pre class="code-block">${label}<code>${code.trim()}</code></pre>`;
   });
 
-  // 行内代码 `
   html = html.replace(/`([^`]+)`/g, '<code class="inline-code">$1</code>');
-
-  // 标题 ### / ## / #
   html = html.replace(/^### (.+)$/gm, '<h4 class="md-heading md-h4">$1</h4>');
   html = html.replace(/^## (.+)$/gm, '<h3 class="md-heading md-h3">$1</h3>');
   html = html.replace(/^# (.+)$/gm, '<h2 class="md-heading md-h2">$1</h2>');
-
-  // 粗体 **text**
   html = html.replace(/\*\*(.+?)\*\*/g, '<strong>$1</strong>');
-
-  // 斜体 *text*
   html = html.replace(/\*(.+?)\*/g, '<em>$1</em>');
-
-  // 链接 [text](url)
   html = html.replace(/\[([^\]]+)\]\(([^)]+)\)/g, '<a class="md-link" href="$2" target="_blank">$1</a>');
-
-  // 分隔线 --- / ***
   html = html.replace(/^(---|\*\*\*)$/gm, '<hr class="md-hr">');
-
-  // 无序列表 - item
   html = html.replace(/^- (.+)$/gm, '<li class="md-li">$1</li>');
-  // 有序列表 1. item
   html = html.replace(/^\d+\. (.+)$/gm, '<li class="md-li">$1</li>');
-  // 将连续的 <li> 包在 <ul> 中
   html = html.replace(/((?:<li class="md-li">.*?<\/li>\n?)+)/g, '<ul class="md-list">$1</ul>');
-
-  // 引用块 >
   html = html.replace(/^> (.+)$/gm, '<blockquote class="md-blockquote"><p>$1</p></blockquote>');
-  // 合并连续的 blockquote
   html = html.replace(/<\/blockquote>\n<blockquote class="md-blockquote">/g, '\n');
-
-  // 剩余换行
   html = html.replace(/\n/g, '<br>');
 
   return html;
 }
 
-// 发送消息到 LLM
+// 发送消息到 LLM（用户输入，显示用户消息）
 async function sendMessage() {
   const text = chatInput.value.trim();
   if (!text || isLoading) return;
@@ -194,10 +245,8 @@ async function sendMessage() {
   setLoading(true);
 
   try {
-    // 优先尝试流式
     const result = await window.electronAPI.llm.chatStream(sessionId, text);
     if (!result.success) {
-      // 流式失败，回退到非流式
       console.warn('[Chat] Stream failed, falling back to non-stream. Error:', result.error);
       const fallbackResult = await window.electronAPI.llm.chat(sessionId, text);
       if (fallbackResult.success) {
@@ -210,6 +259,33 @@ async function sendMessage() {
   } catch (err) {
     console.error('[Chat] Send error:', err);
     finishStreaming('请求失败: ' + (err.message || '网络错误'));
+  }
+}
+
+// 发送转录文本到 LLM（不显示用户消息，只显示 AI 回复）
+async function sendTranscription(text) {
+  if (!text || isLoading) return;
+  if (!window.electronAPI || !window.electronAPI.llm) {
+    addMessage('assistant', 'LLM 服务未就绪。', true);
+    return;
+  }
+
+  setLoading(true);
+
+  try {
+    const result = await window.electronAPI.llm.chatStream(sessionId, text);
+    if (!result.success) {
+      const fallbackResult = await window.electronAPI.llm.chat(sessionId, text);
+      if (fallbackResult.success) {
+        addMessage('assistant', fallbackResult.data);
+      } else {
+        addMessage('assistant', '请求失败: ' + (fallbackResult.error || '未知错误'), true);
+      }
+      setLoading(false);
+    }
+  } catch (err) {
+    console.error('[Chat] Transcription send error:', err);
+    setLoading(false);
   }
 }
 
@@ -252,7 +328,6 @@ function finishStreaming(errorText) {
       }
       msg.isStreaming = false;
 
-      // 只更新这一条消息的 DOM
       const el = messageList.querySelector(`.message-row[data-id="${msg.id}"]`);
       if (el) {
         const newEl = buildMessageEl(msg);
@@ -285,7 +360,6 @@ function buildMessageEl(m) {
   const avatar = isUser ? USER_AVATAR : AI_AVATAR;
 
   if (isUser) {
-    // 用户消息：气泡在右，头像在右
     el.innerHTML = `
       <div class="msg-body">
         <div class="msg-bubble">${content}${cursor}</div>
@@ -294,7 +368,6 @@ function buildMessageEl(m) {
       <div class="msg-avatar">${avatar}</div>
     `;
   } else {
-    // AI 消息：头像在左，气泡在左
     el.innerHTML = `
       <div class="msg-avatar">${avatar}</div>
       <div class="msg-body">
@@ -304,7 +377,6 @@ function buildMessageEl(m) {
     `;
   }
 
-  // 复制按钮（仅 AI 非流式消息）
   if (!isUser && !isStreaming) {
     const body = el.querySelector('.msg-body');
     const btn = document.createElement('button');
@@ -318,7 +390,6 @@ function buildMessageEl(m) {
   return el;
 }
 
-// 绑定单条消息的复制按钮
 function bindCopyBtn(el) {
   const btn = el.querySelector('.msg-copy-btn');
   if (!btn) return;
@@ -335,11 +406,9 @@ function bindCopyBtn(el) {
   });
 }
 
-// 只更新消息列表元数据（条数、空状态），不重建 DOM
 function refreshChatMeta() {
   const totalMessages = messages.filter(m => m.role !== 'system').length;
   msgCount.textContent = `${totalMessages} 条消息`;
-
   if (messages.length === 0) {
     emptyChat.style.display = 'flex';
     messageList.style.display = 'none';
@@ -386,12 +455,10 @@ chatInput.addEventListener('keydown', (e) => {
 if (window.electronAPI && window.electronAPI.onLLMChunk) {
   window.electronAPI.onLLMChunk((chunk) => {
     if (!streamingMessageId) {
-      // 第一条 chunk 到达，创建流式消息
       const msg = addMessage('assistant', chunk);
       msg.isStreaming = true;
       streamingMessageId = msg.id;
     } else {
-      // 追加到现有流式消息 — 只更新这一条 DOM 的文本，不重建整个列表
       const msg = messages.find(m => m.id === streamingMessageId);
       if (msg) {
         msg.text += chunk;
@@ -425,7 +492,7 @@ if (window.electronAPI && window.electronAPI.onTranscriptionUpdate) {
   });
 }
 
-// 接收主进程消息（兼容旧版：直接推送文本到聊天）
+// 接收主进程消息
 if (window.electronAPI) {
   window.electronAPI.on('update-text', (text) => {
     addMessage('assistant', text);
