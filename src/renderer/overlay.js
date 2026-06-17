@@ -16,6 +16,7 @@ const toolbar = document.getElementById('toolbar');
 const askBtn = document.getElementById('askBtn');
 const askText = document.getElementById('askText');
 const recordBtn = document.getElementById('recordBtn');
+const screenshotBtn = document.getElementById('screenshotBtn');
 const closeBtn = document.getElementById('closeBtn');
 const chatPanel = document.getElementById('chatPanel');
 const chatInput = document.getElementById('chatInput');
@@ -163,6 +164,34 @@ recordBtn.addEventListener('click', async (e) => {
     if (audioContext) { audioContext.close().catch(() => {}); audioContext = null; }
     if (mediaStream) { mediaStream.getTracks().forEach(t => t.stop()); mediaStream = null; }
     console.log('[Audio] Microphone capture stopped');
+  }
+});
+
+// 截图 OCR 按钮
+screenshotBtn.addEventListener('click', async (e) => {
+  e.stopPropagation();
+  
+  if (window.electronAPI && window.electronAPI.ocr) {
+    try {
+      screenshotBtn.classList.add('loading');
+      console.log('[OCR] Triggering screenshot...');
+      
+      const result = await window.electronAPI.ocr.screenshot();
+      console.log('[OCR] Screenshot result:', result);
+      
+      if (result && result.success && result.text) {
+        // Show OCR text in chat
+        addMessage('user', '[截图识别] ' + result.text.substring(0, 200) + (result.text.length > 200 ? '...' : ''));
+      } else {
+        addMessage('system', '截图识别失败: ' + (result.error || '未知错误'));
+      }
+      
+      screenshotBtn.classList.remove('loading');
+    } catch (err) {
+      console.error('[OCR] Screenshot failed:', err);
+      screenshotBtn.classList.remove('loading');
+      addMessage('system', '截图识别失败: ' + err.message);
+    }
   }
 });
 
@@ -496,5 +525,17 @@ if (window.electronAPI && window.electronAPI.onTranscriptionUpdate) {
 if (window.electronAPI) {
   window.electronAPI.on('update-text', (text) => {
     addMessage('assistant', text);
+  });
+}
+
+// 接收 OCR 结果
+if (window.electronAPI && window.electronAPI.onOCRResult) {
+  window.electronAPI.onOCRResult((text) => {
+    console.log('[UI] OCR result received:', text.substring(0, 100) + '...');
+    
+    // Show OCR text as user message (screenshot content)
+    if (text && text.trim()) {
+      addMessage('user', '[截图内容] ' + text.substring(0, 200) + (text.length > 200 ? '...' : ''));
+    }
   });
 }

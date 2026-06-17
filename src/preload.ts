@@ -77,4 +77,16 @@ contextBridge.exposeInMainWorld('electronAPI', {
     ipcRenderer.on('llm:done', wrapper);
     return () => ipcRenderer.removeListener('llm:done', wrapper);
   },
+
+  // OCR screenshot API
+  ocr: {
+    screenshot: () => ipcRenderer.invoke('ocr:screenshot'),
+  },
+
+  // OCR result listener
+  onOCRResult: (callback: (text: string) => void) => {
+    const wrapper = (_event: Electron.IpcRendererEvent, text: string) => callback(text);
+    ipcRenderer.on('ocr:result', wrapper);
+    return () => ipcRenderer.removeListener('ocr:result', wrapper);
+  },
 });

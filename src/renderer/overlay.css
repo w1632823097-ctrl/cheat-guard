@@ -135,6 +135,33 @@ body {
 .record-btn:hover svg { color: rgba(239, 100, 100, 0.8); }
 .record-btn.recording svg { color: #f87171; }
 
+/* 截图按钮 */
+.screenshot-btn {
+  -webkit-app-region: no-drag;
+  width: 30px;
+  height: 30px;
+  border-radius: 8px;
+  border: 1px solid rgba(255, 255, 255, 0.08);
+  background: rgba(255, 255, 255, 0.04);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  cursor: pointer;
+  transition: background 0.15s, border-color 0.15s;
+  flex-shrink: 0;
+  outline: none;
+}
+
+.screenshot-btn:hover {
+  background: rgba(59, 130, 246, 0.12);
+  border-color: rgba(59, 130, 246, 0.25);
+}
+
+.screenshot-btn:active { opacity: 0.7; }
+
+.screenshot-btn svg { width: 14px; height: 14px; color: rgba(255, 255, 255, 0.45); }
+.screenshot-btn:hover svg { color: rgba(59, 130, 246, 0.8); }
+
 /* 关闭按钮 */
 .close-btn {
   -webkit-app-region: no-drag;
