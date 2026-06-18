@@ -79,10 +79,16 @@ async function showRegionSelectorAndOCR(): Promise<{ success: boolean; text?: st
 
   console.log('[OCR] Region selected:', region);
 
-  // 第2步：截屏
+  // 第2步：截屏（获取实际屏幕尺寸）
+  const { screen } = require('electron');
+  const primaryDisplay = screen.getPrimaryDisplay();
+  const { width: screenWidth, height: screenHeight } = primaryDisplay.size;
+  console.log('[OCR] Screen size:', screenWidth, 'x', screenHeight);
+
+  // 使用更高分辨率获取截图
   const sources = await desktopCapturer.getSources({
     types: ['screen'],
-    thumbnailSize: { width: 2560, height: 1440 },
+    thumbnailSize: { width: screenWidth * 2, height: screenHeight * 2 },
   });
   if (sources.length === 0) {
     return { success: false, error: 'No screen sources found' };
@@ -93,19 +99,46 @@ async function showRegionSelectorAndOCR(): Promise<{ success: boolean; text?: st
     return { success: false, error: 'Failed to capture screen thumbnail' };
   }
 
+  console.log('[OCR] Thumbnail size:', fullImage.getSize());
+
+  // 保存完整截图供检查
+  const fullPath = path.join(process.cwd(), 'screenshot_full.png');
+  require('fs').writeFileSync(fullPath, fullImage.toPNG());
+  const fullSize = require('fs').statSync(fullPath).size;
+  console.log('[OCR] Full screenshot saved, size:', fullSize, 'bytes');
+
   // 第3步：裁剪到选区
+  // 注意：desktopCapturer 返回的缩略图分辨率可能与屏幕分辨率不同
+  // 需要按比例缩放选区坐标
   const { nativeImage } = require('electron');
   const img = nativeImage.createFromBuffer(fullImage.toPNG());
-  const cropped = img.crop({
-    x: region.x,
-    y: region.y,
-    width: region.width,
-    height: region.height,
-  });
+  const imgSize = img.getSize();
+  console.log('[OCR] Image actual size:', imgSize);
+
+  // 计算缩放比例
+  const scaleX = imgSize.width / screenWidth;
+  const scaleY = imgSize.height / screenHeight;
+  console.log('[OCR] Scale factors:', scaleX, 'x', scaleY);
+
+  const scaledRegion = {
+    x: Math.round(region.x * scaleX),
+    y: Math.round(region.y * scaleY),
+    width: Math.round(region.width * scaleX),
+    height: Math.round(region.height * scaleY),
+  };
+  console.log('[OCR] Scaled region:', scaledRegion);
+
+  const cropped = img.crop(scaledRegion);
 
   const screenshotPath = path.join(process.cwd(), 'screenshot.png');
   require('fs').writeFileSync(screenshotPath, cropped.toPNG());
-  console.log('[OCR] Cropped screenshot saved');
+  const cropSize = require('fs').statSync(screenshotPath).size;
+  console.log('[OCR] Cropped screenshot saved, size:', cropSize, 'bytes');
+
+  // 检查截图是否为空
+  if (cropSize < 100) {
+    return { success: false, error: '截图内容为空，请检查选区是否正确' };
+  }
 
   // 第4步：OCR
   const pythonPath = path.join(process.cwd(), '.venv', 'Scripts', 'python.exe');
@@ -121,10 +154,23 @@ async function showRegionSelectorAndOCR(): Promise<{ success: boolean; text?: st
     let stdout = '';
     let stderr = '';
 
-    proc.stdout.on('data', (data: Buffer) => { stdout += data.toString('utf-8'); });
-    proc.stderr.on('data', (data: Buffer) => { stderr += data.toString('utf-8'); });
+    proc.stdout.on('data', (data: Buffer) => {
+      const text = data.toString('utf-8');
+      stdout += text;
+      console.log('[OCR] stdout chunk:', text.substring(0, 200));
+    });
+
+    proc.stderr.on('data', (data: Buffer) => {
+      const text = data.toString('utf-8');
+      stderr += text;
+      console.log('[OCR] stderr chunk:', text.substring(0, 200));
+    });
 
     proc.on('close', (code: number) => {
+      console.log('[OCR] Python exited with code:', code);
+      console.log('[OCR] stdout full length:', stdout.length);
+      console.log('[OCR] stderr full length:', stderr.length);
+
       if (code !== 0) {
         resolve({ success: false, error: `OCR exited ${code}: ${stderr}` });
         return;
@@ -138,6 +184,8 @@ async function showRegionSelectorAndOCR(): Promise<{ success: boolean; text?: st
         if (t === '识别结果:') { found = true; continue; }
         if (found && !t.startsWith('─') && t !== '') { ocrText += t + '\n'; }
       }
+
+      console.log('[OCR] Parsed text:', ocrText);
 
       if (ocrText.trim()) {
         // 异步发送给 LLM
@@ -417,6 +465,11 @@ function showRegionSelector(): Promise<{ x: number; y: number; width: number; he
         overlayWindow.setAlwaysOnTop(true, 'screen-saver');
       }
     };
+
+    // 窗口关闭时自动清理
+    regionSelectorWindow.on('closed', () => {
+      regionSelectorWindow = null;
+    });
 
     ipcMain.once('region:selected', onSelected);
     ipcMain.once('region:cancel', onCancel);
