@@ -4,7 +4,12 @@ let isRecording = false;
 let currentTranscription = '';
 let isLoading = false;
 let streamingMessageId = null;
-const sessionId = 'default';
+let sessionId = 'default';
+
+// 会话管理相关
+let sessions = [];
+let isSessionDropdownOpen = false;
+let isLoadingHistory = false;
 
 // 模型选择相关
 let currentModelId = '';
@@ -35,6 +40,13 @@ const transcriptionArea = document.getElementById('transcriptionArea');
 const transcriptionText = document.getElementById('transcriptionText');
 const modelBtn = document.getElementById('modelBtn');
 const modelDropdown = document.getElementById('modelDropdown');
+
+// 会话管理 UI
+const sessionSelector = document.getElementById('sessionSelector');
+const sessionBtn = document.getElementById('sessionBtn');
+const sessionBtnLabel = document.getElementById('sessionBtnLabel');
+const sessionDropdown = document.getElementById('sessionDropdown');
+const newSessionBtn = document.getElementById('newSessionBtn');
 
 // 透明度控制
 opacitySlider.addEventListener('input', (e) => {
@@ -306,6 +318,182 @@ document.addEventListener('click', (e) => {
 
 // 初始化加载模型列表
 loadModels();
+
+// ============ 会话管理（持久化记忆） ============
+
+async function loadSessions() {
+  if (!window.electronAPI || !window.electronAPI.llm) return;
+  try {
+    const result = await window.electronAPI.llm.listSessions();
+    if (result.success) {
+      sessions = result.data;
+      try {
+        const curId = await window.electronAPI.llm.getCurrentSession();
+        if (curId.success && curId.data) {
+          sessionId = curId.data;
+        }
+      } catch (e) { /* 使用默认 */ }
+      updateSessionUI();
+      await loadSessionHistory(sessionId);
+    }
+  } catch (err) {
+    console.error('[Sessions] Failed to load:', err);
+  }
+}
+
+function updateSessionUI() {
+  const current = sessions.find(s => s.id === sessionId) || { title: '新对话' };
+  if (sessionBtnLabel) sessionBtnLabel.textContent = current.title;
+}
+
+function buildSessionDropdown() {
+  if (!sessionDropdown) return;
+  sessionDropdown.innerHTML = '';
+  sessions.forEach(s => {
+    const item = document.createElement('button');
+    item.className = 'session-dropdown-item';
+    item.dataset.sessionId = s.id;
+    if (s.id === sessionId) {
+      item.classList.add('active');
+    }
+    const msgCount = s.messageCount || 0;
+    item.innerHTML = `
+      <span>${escapeHtml(s.title)}</span>
+      <span class="session-msg-count">${msgCount} 条</span>
+    `;
+    item.addEventListener('click', (e) => {
+      e.stopPropagation();
+      switchSession(s.id);
+    });
+
+    const delBtn = document.createElement('button');
+    delBtn.className = 'session-delete-btn';
+    delBtn.title = '删除会话';
+    delBtn.innerHTML = `<svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>`;
+    delBtn.addEventListener('click', async (e) => {
+      e.stopPropagation();
+      await deleteSessionById(s.id);
+    });
+    item.appendChild(delBtn);
+
+    sessionDropdown.appendChild(item);
+  });
+}
+
+async function switchSession(id) {
+  if (id === sessionId || isLoadingHistory) return;
+  isLoadingHistory = true;
+  closeSessionDropdown();
+
+  sessionId = id;
+  messages = [];
+  messageList.innerHTML = '';
+  streamingMessageId = null;
+  setLoading(false);
+
+  await loadSessionHistory(id);
+  updateSessionUI();
+  refreshChatMeta();
+  isLoadingHistory = false;
+}
+
+async function loadSessionHistory(id) {
+  if (!window.electronAPI || !window.electronAPI.llm) return;
+  try {
+    const result = await window.electronAPI.llm.getHistory(id);
+    if (result.success && Array.isArray(result.data)) {
+      messages = result.data
+        .filter(m => m.role !== 'system')
+        .map(m => ({
+          id: Date.now().toString() + Math.random().toString(36).slice(2),
+          role: m.role,
+          text: m.content,
+          isError: false,
+          timestamp: new Date(),
+        }));
+      messageList.innerHTML = '';
+      messages.forEach(m => {
+        const el = buildMessageEl(m);
+        messageList.appendChild(el);
+        bindCopyBtn(el);
+      });
+      scrollToBottom();
+      refreshChatMeta();
+    }
+  } catch (err) {
+    console.error('[Sessions] Failed to load history:', err);
+  }
+}
+
+async function addNewSession() {
+  if (!window.electronAPI || !window.electronAPI.llm) return;
+  try {
+    const result = await window.electronAPI.llm.newSession();
+    if (result.success) {
+      await loadSessions();
+      await switchSession(result.data.id);
+    }
+  } catch (err) {
+    console.error('[Sessions] Failed to create:', err);
+  }
+}
+
+async function deleteSessionById(id) {
+  if (sessions.length <= 1) return;
+  if (!window.electronAPI || !window.electronAPI.llm) return;
+  try {
+    const result = await window.electronAPI.llm.deleteSession(id);
+    if (result.success) {
+      await loadSessions();
+      if (sessionId === id && sessions.length > 0) {
+        await switchSession(sessions[0].id);
+      }
+    }
+  } catch (err) {
+    console.error('[Sessions] Failed to delete:', err);
+  }
+}
+
+function openSessionDropdown() {
+  if (isSessionDropdownOpen) {
+    closeSessionDropdown();
+    return;
+  }
+  buildSessionDropdown();
+  sessionDropdown.classList.add('open');
+  sessionBtn.classList.add('active');
+  isSessionDropdownOpen = true;
+}
+
+function closeSessionDropdown() {
+  sessionDropdown.classList.remove('open');
+  sessionBtn.classList.remove('active');
+  isSessionDropdownOpen = false;
+}
+
+if (sessionBtn) {
+  sessionBtn.addEventListener('click', (e) => {
+    e.stopPropagation();
+    openSessionDropdown();
+  });
+}
+
+if (newSessionBtn) {
+  newSessionBtn.addEventListener('click', (e) => {
+    e.stopPropagation();
+    addNewSession();
+  });
+}
+
+document.addEventListener('click', (e) => {
+  if (isSessionDropdownOpen && !sessionSelector?.contains(e.target)) {
+    closeSessionDropdown();
+  }
+});
+
+loadSessions();
+
+// ============ LLM Chat ============
 
 // 拖动功能
 let isDragging = false;

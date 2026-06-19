@@ -52,15 +52,24 @@
     <!-- 咨询面板 -->
     <div class="chat-panel" id="chatPanel">
       <div class="panel-header">
-        <div class="panel-title">
-          <div class="dot"></div>
-          <span>CheatGuard AI</span>
+        <!-- 透明度 -->
+        <div class="opacity-control" id="opacityControl">
+          <span class="opacity-label" id="opacityLabel">100%</span>
+          <input type="range" id="opacitySlider" min="20" max="100" value="100" title="透明度">
+        </div>
+        <!-- 会话选择器 -->
+        <div class="session-selector" id="sessionSelector">
+          <button class="session-btn" id="sessionBtn" title="选择会话">
+            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+              <path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"/>
+            </svg>
+            <span id="sessionBtnLabel">新对话</span>
+            <svg class="session-chevron" width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M6 9l6 6 6-6"/></svg>
+          </button>
+          <div class="session-dropdown" id="sessionDropdown"></div>
         </div>
         <div class="panel-controls">
-          <div class="opacity-control">
-            <span class="opacity-label" id="opacityLabel">100%</span>
-            <input type="range" id="opacitySlider" min="20" max="100" value="100" title="透明度">
-          </div>
+          <button class="new-session-btn" id="newSessionBtn" title="新建会话">+</button>
           <span class="panel-count" id="msgCount">0 条消息</span>
         </div>
       </div>

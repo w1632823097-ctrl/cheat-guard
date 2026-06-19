@@ -1,6 +1,6 @@
 import { app, BrowserWindow, globalShortcut, ipcMain, desktopCapturer } from 'electron';
 import * as path from 'path';
-import { chat, chatStream, clearSession, setApiConfig, getHistory, getAvailableModels, setModel } from './llm/llm-service';
+import { chat, chatStream, clearSession, setApiConfig, getHistory, getAvailableModels, setModel, listSessions, newSession, deleteSession, renameSession } from './llm/llm-service';
 import { setWindowInvisible, setNoActivateStyle, isWDAvailable } from './native/wda-wrapper';
 
 let overlayWindow: BrowserWindow | null = null;
@@ -384,7 +384,7 @@ ipcMain.handle('llm:chat-stream', async (event, sessionId: string, message: stri
 });
 
 ipcMain.on('llm:clear-session', (_event, sessionId: string) => {
-  clearSession(sessionId);
+  clearSession(sessionId).catch(err => console.error('[LLM] clearSession error:', err));
 });
 
 ipcMain.handle('llm:set-config', async (_event, config: { apiKey: string; baseURL?: string; model?: string }) => {
@@ -397,8 +397,58 @@ ipcMain.handle('llm:set-config', async (_event, config: { apiKey: string; baseUR
 });
 
 ipcMain.handle('llm:get-history', async (_event, sessionId: string) => {
-  const history = getHistory(sessionId);
-  return { success: true, data: history };
+  try {
+    const history = await getHistory(sessionId);
+    return { success: true, data: history };
+  } catch (err: any) {
+    return { success: false, error: err.message };
+  }
+});
+
+ipcMain.handle('llm:list-sessions', async () => {
+  try {
+    const sessions = await listSessions();
+    return { success: true, data: sessions };
+  } catch (err: any) {
+    return { success: false, error: err.message };
+  }
+});
+
+ipcMain.handle('llm:new-session', async (_event, title?: string) => {
+  try {
+    const session = await newSession(title);
+    return { success: true, data: session };
+  } catch (err: any) {
+    return { success: false, error: err.message };
+  }
+});
+
+ipcMain.handle('llm:delete-session', async (_event, sessionId: string) => {
+  try {
+    await deleteSession(sessionId);
+    return { success: true };
+  } catch (err: any) {
+    return { success: false, error: err.message };
+  }
+});
+
+ipcMain.handle('llm:rename-session', async (_event, sessionId: string, title: string) => {
+  try {
+    await renameSession(sessionId, title);
+    return { success: true };
+  } catch (err: any) {
+    return { success: false, error: err.message };
+  }
+});
+
+ipcMain.handle('llm:get-current-session', async () => {
+  try {
+    const { getCurrentSessionId } = await import('./llm/chat-store');
+    const id = await getCurrentSessionId();
+    return { success: true, data: id };
+  } catch (err: any) {
+    return { success: false, error: err.message };
+  }
 });
 
 ipcMain.handle('llm:get-models', async () => {

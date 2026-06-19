@@ -67,6 +67,17 @@ contextBridge.exposeInMainWorld('electronAPI', {
       ipcRenderer.invoke('llm:get-models'),
     setModel: (modelId: string) =>
       ipcRenderer.invoke('llm:set-model', modelId),
+    // 会话管理
+    listSessions: () =>
+      ipcRenderer.invoke('llm:list-sessions'),
+    newSession: (title?: string) =>
+      ipcRenderer.invoke('llm:new-session', title),
+    deleteSession: (sessionId: string) =>
+      ipcRenderer.invoke('llm:delete-session', sessionId),
+    renameSession: (sessionId: string, title: string) =>
+      ipcRenderer.invoke('llm:rename-session', sessionId, title),
+    getCurrentSession: () =>
+      ipcRenderer.invoke('llm:get-current-session'),
   },
 
   // LLM streaming chunk listener

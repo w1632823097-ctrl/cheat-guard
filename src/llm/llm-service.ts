@@ -2,6 +2,19 @@ import * as fs from 'fs';
 import * as path from 'path';
 import * as https from 'https';
 import * as http from 'http';
+import {
+  getMessages,
+  addMessage,
+  setMessages,
+  listSessions,
+  newSession,
+  deleteSession,
+  renameSession,
+  setCurrentSessionId,
+  clearCurrentSession,
+  hasMessages,
+  type SessionInfo,
+} from './chat-store';
 
 interface ChatMessage {
   role: 'system' | 'user' | 'assistant';
@@ -19,8 +32,6 @@ export interface ModelInfo {
   name: string;
   baseURL: string;
 }
-
-const conversationHistory: Map<string, ChatMessage[]> = new Map();
 
 let cachedConfig: LLMConfig | null = null;
 let cachedModels: ModelInfo[] = [];
@@ -59,16 +70,13 @@ function loadConfig(): LLMConfig {
       const config = JSON.parse(raw);
       if (config.llm) {
         cachedConfig = {
-          // config.json 优先，环境变量作为 fallback
           apiKey: config.llm.apiKey || envApiKey || '',
           baseURL: config.llm.baseURL || envBaseURL || 'https://api.openai.com/v1',
           model: config.llm.model || envModel || 'gpt-4o-mini',
         };
-        // 解析 models 列表
         if (config.llm.models && Array.isArray(config.llm.models)) {
           cachedModels = config.llm.models;
         } else {
-          // 没有配置 models 列表时，用当前模型生成默认列表
           cachedModels = [{
             id: cachedConfig.model,
             name: cachedConfig.model,
@@ -84,7 +92,6 @@ function loadConfig(): LLMConfig {
     console.warn('[LLM] config.json not found. Searched:', searchPaths.join(', '));
   }
 
-  // 纯环境变量 fallback
   console.warn('[LLM] Using env vars as fallback (no config.json found)');
   cachedConfig = {
     apiKey: envApiKey,
@@ -108,7 +115,7 @@ export function setApiConfig(config: { apiKey?: string; baseURL?: string; model?
 }
 
 export function setModel(modelId: string) {
-  getConfig(); // 确保 config 已加载
+  getConfig();
   const found = cachedModels.find((m) => m.id === modelId);
   if (found) {
     cachedConfig = {
@@ -120,7 +127,6 @@ export function setModel(modelId: string) {
 }
 
 export function getAvailableModels(): ModelInfo[] {
-  // 确保 config 已加载
   getConfig();
   return [...cachedModels];
 }
@@ -129,12 +135,17 @@ export function getModel(): string {
   return getConfig().model;
 }
 
+// ============================================================
+// Session / Memory APIs (持久化)
+// ============================================================
+export { listSessions, newSession, deleteSession, renameSession } from './chat-store';
+export type { SessionInfo } from './chat-store';
+
 function buildEndpoint(baseURL: string): string {
   const base = baseURL.replace(/\/+$/, '');
   return `${base}/chat/completions`;
 }
 
-// 原生 HTTP 请求，避免 axios 在 Electron 中的兼容问题
 function httpRequest(endpoint: string, config: LLMConfig, body: object, stream: boolean): Promise<{ status: number; data: any }> {
   return new Promise((resolve, reject) => {
     const url = new URL(endpoint);
@@ -153,10 +164,7 @@ function httpRequest(endpoint: string, config: LLMConfig, body: object, stream: 
       },
     };
 
-    const maskedKey = config.apiKey.length > 8 ? config.apiKey.slice(0, 4) + '***' + config.apiKey.slice(-4) : '***';
-
     const req = mod.request(options, (res) => {
-
       if (res.statusCode !== 200) {
         let errBody = '';
         res.on('data', (chunk) => { errBody += chunk.toString(); });
@@ -188,6 +196,16 @@ function httpRequest(endpoint: string, config: LLMConfig, body: object, stream: 
   });
 }
 
+// 根据 sessionId 获取消息历史（自动处理首次创建）
+async function getOrInitHistory(sessionId: string, systemPrompt?: string): Promise<ChatMessage[]> {
+  let history = await getMessages(sessionId);
+  if (history.length === 0) {
+    history = [{ role: 'system', content: systemPrompt || DEFAULT_SYSTEM_PROMPT }];
+    await setMessages(sessionId, history);
+  }
+  return history;
+}
+
 export async function chat(
   sessionId: string,
   userMessage: string,
@@ -196,14 +214,10 @@ export async function chat(
   const config = getConfig();
   const endpoint = buildEndpoint(config.baseURL);
 
-  if (!conversationHistory.has(sessionId)) {
-    conversationHistory.set(sessionId, [
-      { role: 'system', content: systemPrompt || DEFAULT_SYSTEM_PROMPT },
-    ]);
-  }
-
-  const history = conversationHistory.get(sessionId)!;
+  let history = await getOrInitHistory(sessionId, systemPrompt);
   history.push({ role: 'user', content: userMessage });
+  await addMessage(sessionId, { role: 'user', content: userMessage });
+
   const recentMessages = history.slice(-21);
 
   const { data } = await httpRequest(endpoint, config, {
@@ -215,7 +229,7 @@ export async function chat(
   }, false);
 
   const assistantMessage = data.choices?.[0]?.message?.content || '(无响应)';
-  history.push({ role: 'assistant', content: assistantMessage });
+  await addMessage(sessionId, { role: 'assistant', content: assistantMessage });
 
   return assistantMessage;
 }
@@ -229,14 +243,10 @@ export async function chatStream(
   const config = getConfig();
   const endpoint = buildEndpoint(config.baseURL);
 
-  if (!conversationHistory.has(sessionId)) {
-    conversationHistory.set(sessionId, [
-      { role: 'system', content: systemPrompt || DEFAULT_SYSTEM_PROMPT },
-    ]);
-  }
-
-  const history = conversationHistory.get(sessionId)!;
+  let history = await getOrInitHistory(sessionId, systemPrompt);
   history.push({ role: 'user', content: userMessage });
+  await addMessage(sessionId, { role: 'user', content: userMessage });
+
   const recentMessages = history.slice(-21);
 
   const { data: stream } = await httpRequest(endpoint, config, {
@@ -273,7 +283,6 @@ export async function chatStream(
     }
   }
 
-  // 处理剩余
   if (buffer.trim().startsWith('data: ') && buffer.trim().slice(6) !== '[DONE]') {
     try {
       const parsed = JSON.parse(buffer.trim().slice(6));
@@ -285,13 +294,13 @@ export async function chatStream(
     } catch { /* ignore */ }
   }
 
-  history.push({ role: 'assistant', content: fullResponse });
+  await addMessage(sessionId, { role: 'assistant', content: fullResponse });
 }
 
-export function clearSession(sessionId: string) {
-  conversationHistory.delete(sessionId);
+export async function clearSession(sessionId: string) {
+  await setMessages(sessionId, []);
 }
 
-export function getHistory(sessionId: string): ChatMessage[] {
-  return conversationHistory.get(sessionId) || [];
+export async function getHistory(sessionId: string): Promise<ChatMessage[]> {
+  return getMessages(sessionId);
 }
