@@ -14,9 +14,16 @@ interface LLMConfig {
   model: string;
 }
 
+export interface ModelInfo {
+  id: string;
+  name: string;
+  baseURL: string;
+}
+
 const conversationHistory: Map<string, ChatMessage[]> = new Map();
 
 let cachedConfig: LLMConfig | null = null;
+let cachedModels: ModelInfo[] = [];
 
 const DEFAULT_SYSTEM_PROMPT = `你是一个实时 AI 桌面助手 CheatGuard，帮助用户在会议、面试、销售通话等场景中提供实时 AI 提示。
 你的回答要求：
@@ -57,6 +64,17 @@ function loadConfig(): LLMConfig {
           baseURL: config.llm.baseURL || envBaseURL || 'https://api.openai.com/v1',
           model: config.llm.model || envModel || 'gpt-4o-mini',
         };
+        // 解析 models 列表
+        if (config.llm.models && Array.isArray(config.llm.models)) {
+          cachedModels = config.llm.models;
+        } else {
+          // 没有配置 models 列表时，用当前模型生成默认列表
+          cachedModels = [{
+            id: cachedConfig.model,
+            name: cachedConfig.model,
+            baseURL: cachedConfig.baseURL,
+          }];
+        }
         return cachedConfig;
       }
     } catch (err) {
@@ -80,12 +98,31 @@ function getConfig(): LLMConfig {
   return loadConfig();
 }
 
-export function setApiConfig(config: { apiKey: string; baseURL?: string; model?: string }) {
+export function setApiConfig(config: { apiKey?: string; baseURL?: string; model?: string }) {
+  const current = getConfig();
   cachedConfig = {
-    apiKey: config.apiKey,
-    baseURL: config.baseURL || 'https://api.openai.com/v1',
-    model: config.model || 'gpt-4o-mini',
+    apiKey: config.apiKey || current.apiKey,
+    baseURL: config.baseURL || current.baseURL,
+    model: config.model || current.model,
   };
+}
+
+export function setModel(modelId: string) {
+  getConfig(); // 确保 config 已加载
+  const found = cachedModels.find((m) => m.id === modelId);
+  if (found) {
+    cachedConfig = {
+      ...cachedConfig!,
+      model: found.id,
+      baseURL: found.baseURL,
+    };
+  }
+}
+
+export function getAvailableModels(): ModelInfo[] {
+  // 确保 config 已加载
+  getConfig();
+  return [...cachedModels];
 }
 
 export function getModel(): string {

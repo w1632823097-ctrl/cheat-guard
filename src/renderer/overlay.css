@@ -135,33 +135,6 @@ body {
 .record-btn:hover svg { color: rgba(239, 100, 100, 0.8); }
 .record-btn.recording svg { color: #f87171; }
 
-/* 截图按钮 */
-.screenshot-btn {
-  -webkit-app-region: no-drag;
-  width: 30px;
-  height: 30px;
-  border-radius: 8px;
-  border: 1px solid rgba(255, 255, 255, 0.08);
-  background: rgba(255, 255, 255, 0.04);
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  cursor: pointer;
-  transition: background 0.15s, border-color 0.15s;
-  flex-shrink: 0;
-  outline: none;
-}
-
-.screenshot-btn:hover {
-  background: rgba(59, 130, 246, 0.12);
-  border-color: rgba(59, 130, 246, 0.25);
-}
-
-.screenshot-btn:active { opacity: 0.7; }
-
-.screenshot-btn svg { width: 14px; height: 14px; color: rgba(255, 255, 255, 0.45); }
-.screenshot-btn:hover svg { color: rgba(59, 130, 246, 0.8); }
-
 /* 关闭按钮 */
 .close-btn {
   -webkit-app-region: no-drag;
@@ -566,3 +539,155 @@ body {
 
 .send-btn:active { opacity: 0.7; }
 .send-btn svg { width: 14px; height: 14px; }
+
+/* 截图按钮（输入区内联） */
+.screenshot-btn {
+  -webkit-app-region: no-drag;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 32px;
+  height: 32px;
+  border-radius: 9px;
+  border: 1px solid rgba(255, 255, 255, 0.08);
+  background: rgba(255, 255, 255, 0.04);
+  cursor: pointer;
+  transition: background 0.15s, border-color 0.15s;
+  flex-shrink: 0;
+  outline: none;
+}
+
+.screenshot-btn:hover {
+  background: rgba(59, 130, 246, 0.12);
+  border-color: rgba(59, 130, 246, 0.25);
+}
+
+.screenshot-btn:active { opacity: 0.7; }
+
+.screenshot-btn svg {
+  width: 14px;
+  height: 14px;
+  color: rgba(255, 255, 255, 0.35);
+  transition: color 0.15s;
+}
+
+.screenshot-btn:hover svg { color: rgba(59, 130, 246, 0.8); }
+
+/* 模型选择器（输入区内联） */
+.model-selector {
+  position: relative;
+  -webkit-app-region: no-drag;
+  flex-shrink: 0;
+}
+
+.model-btn {
+  -webkit-app-region: no-drag;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 32px;
+  height: 32px;
+  border-radius: 9px;
+  border: 1px solid rgba(255, 255, 255, 0.08);
+  background: rgba(255, 255, 255, 0.04);
+  color: rgba(255, 255, 255, 0.35);
+  cursor: pointer;
+  transition: background 0.15s, border-color 0.15s, color 0.15s;
+  outline: none;
+  flex-shrink: 0;
+}
+
+.model-btn:hover {
+  background: rgba(139, 92, 246, 0.12);
+  border-color: rgba(139, 92, 246, 0.25);
+  color: rgba(255, 255, 255, 0.75);
+}
+
+.model-btn.active {
+  background: rgba(139, 92, 246, 0.15);
+  border-color: rgba(139, 92, 246, 0.3);
+  color: rgba(255, 255, 255, 0.85);
+}
+
+.model-btn svg {
+  width: 14px;
+  height: 14px;
+  transition: color 0.15s;
+}
+
+.model-btn:hover svg { color: rgba(139, 92, 246, 0.8); }
+
+#modelBtnLabel {
+  display: none;
+  max-width: 70px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.model-chevron {
+  width: 10px;
+  height: 10px;
+  opacity: 0.4;
+  flex-shrink: 0;
+}
+
+.model-btn:hover .model-chevron { opacity: 0.6; }
+
+/* 模型下拉菜单 */
+.model-dropdown {
+  display: none;
+  position: absolute;
+  bottom: calc(100% + 8px);
+  right: 0;
+  min-width: 180px;
+  background: rgba(15, 17, 23, 0.95);
+  backdrop-filter: blur(20px);
+  -webkit-backdrop-filter: blur(20px);
+  border: 1px solid rgba(255, 255, 255, 0.1);
+  border-radius: 10px;
+  box-shadow: 0 8px 32px rgba(0, 0, 0, 0.5);
+  z-index: 100;
+  padding: 4px;
+  animation: dropdownIn 0.15s ease-out;
+}
+
+.model-dropdown.open { display: block; }
+
+@keyframes dropdownIn {
+  from { opacity: 0; transform: translateY(4px); }
+  to   { opacity: 1; transform: translateY(0); }
+}
+
+.model-dropdown-item {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  width: 100%;
+  padding: 7px 10px;
+  border: none;
+  border-radius: 6px;
+  background: transparent;
+  color: rgba(255, 255, 255, 0.6);
+  font-size: 12px;
+  font-weight: 500;
+  cursor: pointer;
+  transition: background 0.12s, color 0.12s;
+  text-align: left;
+  outline: none;
+  font-family: inherit;
+}
+
+.model-dropdown-item:hover {
+  background: rgba(255, 255, 255, 0.06);
+  color: rgba(255, 255, 255, 0.85);
+}
+
+.model-dropdown-item.active {
+  background: rgba(139, 92, 246, 0.12);
+  color: #a78bfa;
+}
+
+.model-dropdown-item.active svg {
+  color: #a78bfa;
+  flex-shrink: 0;
+}

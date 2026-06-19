@@ -6,6 +6,11 @@ let isLoading = false;
 let streamingMessageId = null;
 const sessionId = 'default';
 
+// 模型选择相关
+let currentModelId = '';
+let availableModels = [];
+let isModelDropdownOpen = false;
+
 // 音频捕获相关
 let audioContext = null;
 let mediaStream = null;
@@ -28,6 +33,8 @@ const opacitySlider = document.getElementById('opacitySlider');
 const opacityLabel = document.getElementById('opacityLabel');
 const transcriptionArea = document.getElementById('transcriptionArea');
 const transcriptionText = document.getElementById('transcriptionText');
+const modelBtn = document.getElementById('modelBtn');
+const modelDropdown = document.getElementById('modelDropdown');
 
 // 透明度控制
 opacitySlider.addEventListener('input', (e) => {
@@ -202,6 +209,103 @@ closeBtn.addEventListener('click', (e) => {
     window.electronAPI.send('quit-app');
   }
 });
+
+// ============ 模型选择 ============
+
+async function loadModels() {
+  if (!window.electronAPI || !window.electronAPI.llm || !window.electronAPI.llm.getModels) return;
+  try {
+    const result = await window.electronAPI.llm.getModels();
+    if (result.success && result.data && result.data.length > 0) {
+      availableModels = result.data;
+      currentModelId = availableModels[0].id;
+      renderModelSelector();
+    }
+  } catch (err) {
+    console.error('[Models] Failed to load:', err);
+  }
+}
+
+function renderModelSelector() {
+  const current = availableModels.find(m => m.id === currentModelId);
+  modelBtn.title = `切换模型 (当前: ${current ? current.name : currentModelId})`;
+}
+
+function buildDropdown() {
+  if (!modelDropdown) return;
+  modelDropdown.innerHTML = '';
+  availableModels.forEach(model => {
+    const item = document.createElement('button');
+    item.className = 'model-dropdown-item';
+    item.dataset.modelId = model.id;
+    if (model.id === currentModelId) {
+      item.classList.add('active');
+      item.innerHTML = `
+        <span>${model.name}</span>
+        <svg width="14" height="14" viewBox="0 0 24 24" fill="currentColor">
+          <path d="M9 16.17L4.83 12l-1.42 1.41L9 19 21 7l-1.41-1.41L9 16.17z"/>
+        </svg>
+      `;
+    } else {
+      item.innerHTML = `<span>${model.name}</span>`;
+    }
+    item.addEventListener('click', (e) => {
+      e.stopPropagation();
+      switchModel(model.id);
+    });
+    modelDropdown.appendChild(item);
+  });
+}
+
+async function switchModel(modelId) {
+  if (!window.electronAPI || !window.electronAPI.llm || !window.electronAPI.llm.setModel) return;
+  try {
+    const result = await window.electronAPI.llm.setModel(modelId);
+    if (result.success) {
+      currentModelId = modelId;
+      renderModelSelector();
+      buildDropdown();
+    }
+  } catch (err) {
+    console.error('[Models] Switch failed:', err);
+  }
+  closeModelDropdown();
+}
+
+function openModelDropdown() {
+  if (isModelDropdownOpen) {
+    closeModelDropdown();
+    return;
+  }
+  buildDropdown();
+  modelDropdown.classList.add('open');
+  modelBtn.classList.add('active');
+  isModelDropdownOpen = true;
+}
+
+function closeModelDropdown() {
+  modelDropdown.classList.remove('open');
+  modelBtn.classList.remove('active');
+  isModelDropdownOpen = false;
+}
+
+// 模型按钮点击
+if (modelBtn) {
+  modelBtn.addEventListener('click', (e) => {
+    e.stopPropagation();
+    openModelDropdown();
+  });
+}
+
+// 点击外部关闭下拉
+document.addEventListener('click', (e) => {
+  if (isModelDropdownOpen && !modelBtn.contains(e.target) && !modelDropdown.contains(e.target)) {
+    closeModelDropdown();
+  }
+});
+
+// 初始化加载模型列表
+loadModels();
 
 // 拖动功能
 let isDragging = false;

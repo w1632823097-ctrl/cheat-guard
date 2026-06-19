@@ -1,6 +1,6 @@
 import { app, BrowserWindow, globalShortcut, ipcMain, desktopCapturer } from 'electron';
 import * as path from 'path';
-import { chat, chatStream, clearSession, setApiConfig, getHistory } from './llm/llm-service';
+import { chat, chatStream, clearSession, setApiConfig, getHistory, getAvailableModels, setModel } from './llm/llm-service';
 import { setWindowInvisible, setNoActivateStyle, isWDAvailable } from './native/wda-wrapper';
 
 let overlayWindow: BrowserWindow | null = null;
@@ -399,6 +399,24 @@ ipcMain.handle('llm:set-config', async (_event, config: { apiKey: string; baseUR
 ipcMain.handle('llm:get-history', async (_event, sessionId: string) => {
   const history = getHistory(sessionId);
   return { success: true, data: history };
+});
+
+ipcMain.handle('llm:get-models', async () => {
+  try {
+    const models = getAvailableModels();
+    return { success: true, data: models };
+  } catch (err: any) {
+    return { success: false, error: err.message };
+  }
+});
+
+ipcMain.handle('llm:set-model', async (_event, modelId: string) => {
+  try {
+    setModel(modelId);
+    return { success: true };
+  } catch (err: any) {
+    return { success: false, error: err.message };
+  }
 });
 
 // ============================================================

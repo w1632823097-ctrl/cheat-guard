@@ -63,6 +63,10 @@ contextBridge.exposeInMainWorld('electronAPI', {
       ipcRenderer.invoke('llm:set-config', config),
     getHistory: (sessionId: string) =>
       ipcRenderer.invoke('llm:get-history', sessionId),
+    getModels: () =>
+      ipcRenderer.invoke('llm:get-models'),
+    setModel: (modelId: string) =>
+      ipcRenderer.invoke('llm:set-model', modelId),
   },
 
   // LLM streaming chunk listener
