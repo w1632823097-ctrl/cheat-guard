@@ -1,0 +1,22 @@
+{
+  "llm": {
+    "apiKey": "your-api-key-here",
+    "baseURL": "https://www.sophnet.com/api/open-apis/v1",
+    "model": "DeepSeek-V4-Flash",
+    "models": [
+      { "id": "DeepSeek-V4-Flash", "name": "DeepSeek V4 Flash", "baseURL": "https://www.sophnet.com/api/open-apis/v1" },
+      { "id": "DeepSeek-V4-Pro", "name": "DeepSeek V4 Pro", "baseURL": "https://www.sophnet.com/api/open-apis/v1" },
+      { "id": "GLM-5.2:your-model-key", "name": "GLM-5.2 (联网)", "baseURL": "https://api.sophnet.com/v1" }
+    ]
+  },
+  "asr": {
+    "apiKey": "your-asr-key-here",
+    "model": "qwen3-asr-flash-realtime",
+    "language": "zh",
+    "sampleRate": 16000
+  },
+  "webSearch": {
+    "provider": "duckduckgo",
+    "maxResults": 5
+  }
+}
