@@ -526,9 +526,25 @@ function escapeHtml(text) {
 function renderMessageContent(text) {
   let html = escapeHtml(text);
 
+  // 代码块（```...```）— 使用 highlight.js 语法高亮
   html = html.replace(/```(\w*)\n?([\s\S]*?)```/g, (_m, lang, code) => {
-    const label = lang ? `<span class="code-lang">${lang}</span>` : '';
-    return `<pre class="code-block">${label}<code>${code.trim()}</code></pre>`;
+    const trimmed = code.trim();
+    let highlighted;
+    try {
+      if (typeof hljs !== 'undefined') {
+        if (lang && hljs.getLanguage(lang)) {
+          highlighted = hljs.highlight(trimmed, { language: lang }).value;
+        } else {
+          highlighted = hljs.highlightAuto(trimmed).value;
+        }
+      } else {
+        highlighted = escapeHtml(trimmed);
+      }
+    } catch (e) {
+      highlighted = escapeHtml(trimmed);
+    }
+    const label = lang ? `<span class="code-lang">${escapeHtml(lang)}</span>` : '';
+    return `<div class="code-block-wrapper">${label}<button class="code-copy-btn" onclick="copyCodeBlock(this)" title="复制代码"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="9" y="9" width="13" height="13" rx="2" ry="2"/><path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"/></svg></button><pre class="code-block"><code class="hljs">${highlighted}</code></pre></div>`;
   });
 
   html = html.replace(/`([^`]+)`/g, '<code class="inline-code">$1</code>');
@@ -547,6 +563,22 @@ function renderMessageContent(text) {
   html = html.replace(/\n/g, '<br>');
 
   return html;
+}
+
+// 复制代码块
+function copyCodeBlock(btn) {
+  const wrapper = btn.closest('.code-block-wrapper');
+  const code = wrapper?.querySelector('code');
+  if (!code) return;
+  const text = code.textContent || '';
+  navigator.clipboard.writeText(text).then(() => {
+    btn.classList.add('copied');
+    btn.title = '已复制';
+    setTimeout(() => {
+      btn.classList.remove('copied');
+      btn.title = '复制代码';
+    }, 2000);
+  }).catch(() => {});
 }
 
 // 发送消息到 LLM（用户输入，显示用户消息）

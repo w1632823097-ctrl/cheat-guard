@@ -873,3 +873,155 @@ body {
   color: #a78bfa;
   flex-shrink: 0;
 }
+
+/* ============================================================
+   代码块语法高亮（highlight.js + atom-one-dark）
+   ============================================================ */
+.code-block-wrapper {
+  position: relative;
+  margin: 8px 0;
+  border-radius: 10px;
+  border: 1px solid rgba(255, 255, 255, 0.06);
+  background: #1a1b26;
+  overflow: hidden;
+}
+
+.code-block-wrapper .code-lang {
+  position: absolute;
+  top: 8px;
+  left: 12px;
+  z-index: 2;
+  font-size: 10px;
+  font-weight: 600;
+  color: rgba(255, 255, 255, 0.25);
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+  pointer-events: none;
+}
+
+.code-copy-btn {
+  position: absolute;
+  top: 6px;
+  right: 6px;
+  z-index: 2;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 28px;
+  height: 28px;
+  border-radius: 6px;
+  border: 1px solid rgba(255, 255, 255, 0.06);
+  background: rgba(0, 0, 0, 0.35);
+  color: rgba(255, 255, 255, 0.25);
+  cursor: pointer;
+  transition: all 0.15s;
+  opacity: 0;
+  outline: none;
+}
+
+.code-block-wrapper:hover .code-copy-btn {
+  opacity: 1;
+}
+
+.code-copy-btn:hover {
+  background: rgba(255, 255, 255, 0.1);
+  color: rgba(255, 255, 255, 0.7);
+  border-color: rgba(255, 255, 255, 0.12);
+}
+
+.code-copy-btn.copied {
+  background: rgba(34, 197, 94, 0.15);
+  border-color: rgba(34, 197, 94, 0.3);
+  color: rgba(34, 197, 94, 0.85);
+}
+
+.code-block {
+  margin: 0;
+  padding: 14px 12px;
+  overflow-x: auto;
+  font-family: 'Cascadia Code', 'Fira Code', 'JetBrains Mono', 'Consolas', 'Monaco', monospace;
+  font-size: 12px;
+  line-height: 1.55;
+  tab-size: 2;
+  -moz-tab-size: 2;
+}
+
+.code-block code.hljs {
+  background: transparent;
+  padding: 0;
+  font-family: inherit;
+  font-size: inherit;
+  line-height: inherit;
+}
+
+/* 滚动条：代码块 */
+.code-block::-webkit-scrollbar { height: 4px; }
+.code-block::-webkit-scrollbar-track { background: transparent; }
+.code-block::-webkit-scrollbar-thumb {
+  background: rgba(255, 255, 255, 0.06);
+  border-radius: 2px;
+}
+
+/* 覆盖 highlight.js atom-one-dark 背景（使用我们的深色） */
+.code-block .hljs { background: #1a1b26; color: #c9d1d9; }
+
+/* ============================================================
+   行内代码
+   ============================================================ */
+.inline-code {
+  padding: 2px 6px;
+  border-radius: 5px;
+  background: rgba(255, 255, 255, 0.06);
+  color: #c084fc;
+  font-family: 'Cascadia Code', 'Fira Code', 'JetBrains Mono', 'Consolas', 'Monaco', monospace;
+  font-size: 0.9em;
+}
+
+/* ============================================================
+   Markdown 排版
+   ============================================================ */
+.md-heading { margin: 6px 0 4px; }
+.md-h2 { font-size: 15px; font-weight: 700; color: rgba(255, 255, 255, 0.9); }
+.md-h3 { font-size: 13.5px; font-weight: 600; color: rgba(255, 255, 255, 0.8); }
+.md-h4 { font-size: 12.5px; font-weight: 600; color: rgba(255, 255, 255, 0.7); }
+
+.md-link {
+  color: #93c5fd;
+  text-decoration: none;
+  border-bottom: 1px solid rgba(147, 197, 253, 0.3);
+  transition: border-color 0.15s;
+}
+.md-link:hover { border-color: #93c5fd; }
+
+.md-hr {
+  border: none;
+  height: 1px;
+  background: rgba(255, 255, 255, 0.06);
+  margin: 6px 0;
+}
+
+.md-list {
+  margin: 2px 0;
+  padding-inline-start: 18px;
+  list-style-type: disc;
+}
+
+.md-li {
+  font-size: 12px;
+  color: rgba(255, 255, 255, 0.7);
+  line-height: 1.5;
+  margin: 1px 0;
+}
+
+.md-blockquote {
+  border-left: 2px solid rgba(147, 197, 253, 0.35);
+  padding: 4px 10px;
+  margin: 4px 0;
+  background: rgba(255, 255, 255, 0.02);
+  border-radius: 0 6px 6px 0;
+}
+.md-blockquote p {
+  font-size: 12px;
+  color: rgba(255, 255, 255, 0.55);
+  line-height: 1.5;
+}

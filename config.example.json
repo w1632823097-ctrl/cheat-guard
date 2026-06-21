@@ -14,9 +14,5 @@
     "model": "qwen3-asr-flash-realtime",
     "language": "zh",
     "sampleRate": 16000
-  },
-  "webSearch": {
-    "provider": "duckduckgo",
-    "maxResults": 5
   }
 }

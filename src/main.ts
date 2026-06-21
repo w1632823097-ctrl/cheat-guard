@@ -48,15 +48,20 @@ function createOverlayWindow() {
 
   overlayWindow.once('ready-to-show', () => {
     if (process.platform === 'win32' && isWDAvailable()) {
-      try {
-        const hwnd = overlayWindow?.getNativeWindowHandle();
-        if (hwnd) {
-          setNoActivateStyle(hwnd);
-          setWindowInvisible(hwnd);
+      const applyWDA = () => {
+        try {
+          const hwnd = overlayWindow?.getNativeWindowHandle();
+          if (hwnd) {
+            setNoActivateStyle(hwnd);
+            setWindowInvisible(hwnd);
+          }
+        } catch (err) {
+          console.error('[WDA] Error applying WDA:', err);
         }
-      } catch (err) {
-        console.error('[WDA] Error applying WDA:', err);
-      }
+      };
+      applyWDA();
+      // 定期重新应用 WDA，防止 Windows DWM 重组后 flag 掉落
+      setInterval(applyWDA, 3000);
     }
 
     overlayWindow?.showInactive();
