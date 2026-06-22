@@ -48,20 +48,42 @@ function createOverlayWindow() {
 
   overlayWindow.once('ready-to-show', () => {
     if (process.platform === 'win32' && isWDAvailable()) {
+      let wdaInitialized = false;
+      let lastWDAFailed = false;
       const applyWDA = () => {
         try {
           const hwnd = overlayWindow?.getNativeWindowHandle();
           if (hwnd) {
-            setNoActivateStyle(hwnd);
-            setWindowInvisible(hwnd);
+            const styleOk = setNoActivateStyle(hwnd);
+            const invisibleOk = setWindowInvisible(hwnd);
+            const success = styleOk && invisibleOk;
+
+            if (!wdaInitialized) {
+              if (success) {
+                console.log('[WDA] Window set to screen-capture invisible');
+                console.log('[WDA] WS_EX_NOACTIVATE style applied');
+                wdaInitialized = true;
+                lastWDAFailed = false;
+              }
+            } else if (!success && !lastWDAFailed) {
+              console.warn('[WDA] Re-apply failed, will keep retrying');
+              lastWDAFailed = true;
+            } else if (success && lastWDAFailed) {
+              console.log('[WDA] Re-apply succeeded');
+              lastWDAFailed = false;
+            }
           }
         } catch (err) {
           console.error('[WDA] Error applying WDA:', err);
         }
       };
       applyWDA();
-      // 定期重新应用 WDA，防止 Windows DWM 重组后 flag 掉落
-      setInterval(applyWDA, 3000);
+      // 定期重新应用 WDA + alwaysOnTop，防止第三方录屏软件（如腾讯会议）
+      // 接管屏幕捕获管线时改变 DWM 合成状态导致 flag 掉落和 z-order 被抢占
+      setInterval(() => {
+        applyWDA();
+        overlayWindow?.setAlwaysOnTop(true, 'screen-saver');
+      }, 3000);
     }
 
     overlayWindow?.showInactive();

@@ -1,5 +1,6 @@
 node_modules/
 dist/
+out/
 release/
 .vite/
 *.log
@@ -34,3 +35,13 @@ test-llm.ts
 *.node
 *.obj
 build/
+
+# electron-builder cache
+.cache/
+
+# Runtime generated screenshots
+screenshot.png
+screenshot_full.png
+
+# Debug notes (local only)
+debug-toolbar-white-bar.md

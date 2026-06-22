@@ -39,9 +39,7 @@ export function setWindowInvisible(hwndBuffer: Buffer): boolean {
       result = _SetWindowDisplayAffinity(hwnd, WDA_MONITOR);
     }
 
-    if (result) {
-      console.log('[WDA] Window set to screen-capture invisible');
-    } else {
+    if (!result) {
       console.error('[WDA] Both WDA modes failed');
     }
 
@@ -102,7 +100,6 @@ export function setNoActivateStyle(hwndBuffer: Buffer): boolean {
 
     _SetWindowPos(hwnd, 0n, 0, 0, 0, 0, SWP_FRAMECHANGED | SWP_NOMOVE | SWP_NOSIZE | SWP_NOZORDER | SWP_NOACTIVATE);
 
-    console.log('[WDA] WS_EX_NOACTIVATE style applied');
     return true;
   } catch (err) {
     console.error('[WDA] Failed to set no-activate style:', err);

@@ -8,6 +8,7 @@
     "build": "tsc",
     "start": "npm run build && electron .",
     "dist": "electron-builder",
+    "dist:cn": "set ELECTRON_MIRROR=https://npmmirror.com/mirrors/electron/&& set ELECTRON_BUILDER_BINARIES_MIRROR=https://npmmirror.com/mirrors/electron-builder-binaries/&& set CSC_IDENTITY_AUTO_DISCOVERY=false&& npm run build && electron-builder --win",
     "build-native": "node-gyp rebuild --directory src/native",
     "build-native:debug": "node-gyp rebuild --directory src/native --debug"
   },
@@ -41,15 +42,31 @@
     "appId": "com.cheatguard.app",
     "productName": "CheatGuard",
     "directories": {
-      "output": "release"
+      "output": "out"
     },
     "files": [
       "dist/**/*",
-      "assets/**/*",
+      "src/renderer/**/*",
       "package.json"
     ],
     "win": {
-      "target": "nsis"
+      "target": [
+        {
+          "target": "nsis",
+          "arch": ["x64"]
+        }
+      ],
+      "artifactName": "CheatGuard-Setup-${version}.${ext}",
+      "signAndEditExecutable": false,
+      "sign": null
+    },
+    "nsis": {
+      "oneClick": false,
+      "perMachine": false,
+      "allowToChangeInstallationDirectory": true,
+      "createDesktopShortcut": true,
+      "createStartMenuShortcut": true,
+      "shortcutName": "CheatGuard"
     },
     "mac": {
       "target": "dmg"
