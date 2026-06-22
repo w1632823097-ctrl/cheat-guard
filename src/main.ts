@@ -2,6 +2,9 @@ import { app, BrowserWindow, globalShortcut, ipcMain, desktopCapturer } from 'el
 import * as path from 'path';
 import { chat, chatStream, clearSession, setApiConfig, getHistory, getAvailableModels, setModel, listSessions, newSession, deleteSession, renameSession } from './llm/llm-service';
 import { setWindowInvisible, setNoActivateStyle, isWDAvailable } from './native/wda-wrapper';
+import { recognizeText, cleanupTempFiles, saveTempImage } from './ocr/ocr-service';
+import * as fs from 'fs';
+import * as os from 'os';
 
 let overlayWindow: BrowserWindow | null = null;
 let regionSelectorWindow: BrowserWindow | null = null;
@@ -96,8 +99,54 @@ function createOverlayWindow() {
 }
 
 // ============================================================
-// OCR：选区 + 截屏 + OCR 核心函数
+// OCR：选区 + 截屏 + OCR 核心函数（Tesseract.js 纯 Node.js 方案）
 // ============================================================
+
+/** 截图临时文件路径 */
+const SCREENSHOT_DIR = path.join(os.tmpdir(), 'cheat-guard-screenshots');
+
+/** 确保截图目录存在 */
+function ensureScreenshotDir(): void {
+  if (!fs.existsSync(SCREENSHOT_DIR)) {
+    fs.mkdirSync(SCREENSHOT_DIR, { recursive: true });
+  }
+}
+
+/** 生成带时间戳的截图路径 */
+function getScreenshotPath(prefix: string): string {
+  ensureScreenshotDir();
+  const timestamp = Date.now();
+  const random = Math.random().toString(36).slice(2, 8);
+  return path.join(SCREENSHOT_DIR, `${prefix}_${timestamp}_${random}.png`);
+}
+
+/** 清理所有截图临时文件 */
+function cleanupScreenshots(): void {
+  try {
+    if (fs.existsSync(SCREENSHOT_DIR)) {
+      const files = fs.readdirSync(SCREENSHOT_DIR);
+      for (const file of files) {
+        if (file.endsWith('.png')) {
+          try {
+            fs.unlinkSync(path.join(SCREENSHOT_DIR, file));
+          } catch {
+            // 忽略删除失败
+          }
+        }
+      }
+      console.log('[OCR] Cleaned up', files.length, 'screenshot files');
+    }
+  } catch (err) {
+    console.warn('[OCR] Screenshot cleanup failed:', err);
+  }
+}
+
+/** 应用退出时清理所有临时文件 */
+app.on('will-quit', () => {
+  cleanupScreenshots();
+  cleanupTempFiles();
+});
+
 async function showRegionSelectorAndOCR(): Promise<{ success: boolean; text?: string; error?: string }> {
   // 第1步：用户选区域
   const region = await showRegionSelector();
@@ -129,15 +178,12 @@ async function showRegionSelectorAndOCR(): Promise<{ success: boolean; text?: st
 
   console.log('[OCR] Thumbnail size:', fullImage.getSize());
 
-  // 保存完整截图供检查
-  const fullPath = path.join(process.cwd(), 'screenshot_full.png');
-  require('fs').writeFileSync(fullPath, fullImage.toPNG());
-  const fullSize = require('fs').statSync(fullPath).size;
-  console.log('[OCR] Full screenshot saved, size:', fullSize, 'bytes');
+  // 保存完整截图到临时目录
+  const fullPath = getScreenshotPath('full');
+  fs.writeFileSync(fullPath, fullImage.toPNG());
+  console.log('[OCR] Full screenshot saved:', fullPath);
 
   // 第3步：裁剪到选区
-  // 注意：desktopCapturer 返回的缩略图分辨率可能与屏幕分辨率不同
-  // 需要按比例缩放选区坐标
   const { nativeImage } = require('electron');
   const img = nativeImage.createFromBuffer(fullImage.toPNG());
   const imgSize = img.getSize();
@@ -158,76 +204,43 @@ async function showRegionSelectorAndOCR(): Promise<{ success: boolean; text?: st
 
   const cropped = img.crop(scaledRegion);
 
-  const screenshotPath = path.join(process.cwd(), 'screenshot.png');
-  require('fs').writeFileSync(screenshotPath, cropped.toPNG());
-  const cropSize = require('fs').statSync(screenshotPath).size;
-  console.log('[OCR] Cropped screenshot saved, size:', cropSize, 'bytes');
+  // 保存裁剪后的截图到临时目录
+  const screenshotPath = getScreenshotPath('crop');
+  fs.writeFileSync(screenshotPath, cropped.toPNG());
+  const cropSize = fs.statSync(screenshotPath).size;
+  console.log('[OCR] Cropped screenshot saved:', screenshotPath, 'size:', cropSize, 'bytes');
 
   // 检查截图是否为空
   if (cropSize < 100) {
+    // 清理临时文件
+    try { fs.unlinkSync(fullPath); } catch {}
+    try { fs.unlinkSync(screenshotPath); } catch {}
     return { success: false, error: '截图内容为空，请检查选区是否正确' };
   }
 
-  // 第4步：OCR
-  const pythonPath = path.join(process.cwd(), '.venv', 'Scripts', 'python.exe');
-  const scriptPath = path.join(process.cwd(), 'test', 'test-ocr.py');
+  // 第4步：使用 Tesseract.js 进行 OCR
+  try {
+    const ocrText = await recognizeText(screenshotPath);
+    console.log('[OCR] Recognized text length:', ocrText.length);
 
-  return new Promise((resolve) => {
-    const proc = require('child_process').spawn(pythonPath, [
-      scriptPath,
-      '--file', screenshotPath,
-      '--no-llm'
-    ], { env: { ...process.env, PYTHONIOENCODING: 'utf-8' } });
+    // 清理截图临时文件
+    try { fs.unlinkSync(fullPath); } catch {}
+    try { fs.unlinkSync(screenshotPath); } catch {}
 
-    let stdout = '';
-    let stderr = '';
-
-    proc.stdout.on('data', (data: Buffer) => {
-      const text = data.toString('utf-8');
-      stdout += text;
-      console.log('[OCR] stdout chunk:', text.substring(0, 200));
-    });
-
-    proc.stderr.on('data', (data: Buffer) => {
-      const text = data.toString('utf-8');
-      stderr += text;
-      console.log('[OCR] stderr chunk:', text.substring(0, 200));
-    });
-
-    proc.on('close', (code: number) => {
-      console.log('[OCR] Python exited with code:', code);
-      console.log('[OCR] stdout full length:', stdout.length);
-      console.log('[OCR] stderr full length:', stderr.length);
-
-      if (code !== 0) {
-        resolve({ success: false, error: `OCR exited ${code}: ${stderr}` });
-        return;
-      }
-
-      const lines = stdout.split('\n');
-      let ocrText = '';
-      let found = false;
-      for (const line of lines) {
-        const t = line.trim();
-        if (t === '识别结果:') { found = true; continue; }
-        if (found && !t.startsWith('─') && t !== '') { ocrText += t + '\n'; }
-      }
-
-      console.log('[OCR] Parsed text:', ocrText);
-
-      if (ocrText.trim()) {
-        // 异步发送给 LLM
-        sendOCRToLLM(ocrText.trim());
-        resolve({ success: true, text: ocrText.trim() });
-      } else {
-        resolve({ success: true, text: '(未识别到文字)' });
-      }
-    });
-
-    proc.on('error', (err: Error) => {
-      resolve({ success: false, error: err.message });
-    });
-  });
+    if (ocrText.trim()) {
+      // 异步发送给 LLM
+      sendOCRToLLM(ocrText.trim());
+      return { success: true, text: ocrText.trim() };
+    } else {
+      return { success: true, text: '(未识别到文字)' };
+    }
+  } catch (err: any) {
+    console.error('[OCR] Tesseract recognition failed:', err);
+    // 清理临时文件
+    try { fs.unlinkSync(fullPath); } catch {}
+    try { fs.unlinkSync(screenshotPath); } catch {}
+    return { success: false, error: `OCR 识别失败: ${err.message}` };
+  }
 }
 
 async function sendOCRToLLM(ocrText: string) {

@@ -36,6 +36,7 @@
     "electron-store": "^11.0.2",
     "highlight.js": "^11.11.1",
     "koffi": "^3.0.2",
+    "tesseract.js": "^7.0.0",
     "ws": "^8.21.0"
   },
   "build": {
@@ -53,7 +54,9 @@
       "target": [
         {
           "target": "nsis",
-          "arch": ["x64"]
+          "arch": [
+            "x64"
+          ]
         }
       ],
       "artifactName": "CheatGuard-Setup-${version}.${ext}",
