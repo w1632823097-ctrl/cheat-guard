@@ -1,7 +1,7 @@
 import * as fs from 'fs';
 import * as path from 'path';
 import * as os from 'os';
-import { createWorker, Worker } from 'tesseract.js';
+import { Worker, createWorker } from 'tesseract.js';
 
 // ============================================================
 // OCR Service - 使用 Tesseract.js 纯 Node.js OCR
@@ -12,6 +12,11 @@ let worker: Worker | null = null;
 let workerInitializing = false;
 
 const TEMP_DIR = path.join(os.tmpdir(), 'cheat-guard-ocr');
+
+// Electron NativeImage 类型（简化版）
+interface NativeImage {
+  toPNG(): Buffer;
+}
 
 // 确保临时目录存在
 if (!fs.existsSync(TEMP_DIR)) {
@@ -119,7 +124,7 @@ export async function recognizeText(imagePath: string | Buffer): Promise<string>
  * @param nativeImage Electron NativeImage 对象
  * @returns 识别的文字
  */
-export async function recognizeNativeImage(nativeImage: any): Promise<string> {
+export async function recognizeNativeImage(nativeImage: NativeImage): Promise<string> {
   const pngBuffer = nativeImage.toPNG();
   return recognizeText(pngBuffer);
 }

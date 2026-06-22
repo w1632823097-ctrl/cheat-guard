@@ -235,12 +235,13 @@ async function showRegionSelectorAndOCR(): Promise<{ success: boolean; text?: st
     } else {
       return { success: true, text: '(未识别到文字)' };
     }
-  } catch (err: any) {
-    console.error('[OCR] Tesseract recognition failed:', err);
+  } catch (err) {
+    const msg = getErrorMessage(err);
+    console.error('[OCR] Tesseract recognition failed:', msg);
     // 清理临时文件
     try { fs.unlinkSync(fullPath); } catch {}
     try { fs.unlinkSync(screenshotPath); } catch {}
-    return { success: false, error: `OCR 识别失败: ${err.message}` };
+    return { success: false, error: `OCR 识别失败: ${msg}` };
   }
 }
 
@@ -252,8 +253,8 @@ async function sendOCRToLLM(ocrText: string) {
       overlayWindow?.webContents.send('llm:chunk', chunk);
     });
     overlayWindow?.webContents.send('llm:done');
-  } catch (err: any) {
-    console.error('[LLM] OCR analysis failed:', err.message);
+  } catch (err) {
+    console.error('[LLM] OCR analysis failed:', getErrorMessage(err));
     overlayWindow?.webContents.send('llm:done');
   }
 }
@@ -295,8 +296,8 @@ app.whenReady().then(async () => {
         overlayWindow.webContents.send('ocr:result', result.text);
         sendOCRToLLM(result.text);
       }
-    } catch (err: any) {
-      console.error('[OCR] Shortcut failed:', err.message);
+    } catch (err) {
+      console.error('[OCR] Shortcut failed:', getErrorMessage(err));
     }
   });
 
@@ -422,17 +423,31 @@ ipcMain.on('set-overlay-height', (event, expanded: boolean) => {
   }
 });
 
-ipcMain.handle('llm:chat', async (_event, sessionId: string, message: string, systemPrompt?: string) => {
+/** IPC 响应类型 */
+interface IPCResponse<T = unknown> {
+  success: boolean;
+  data?: T;
+  error?: string;
+}
+
+/** 获取错误消息 */
+function getErrorMessage(err: unknown): string {
+  if (err instanceof Error) return err.message;
+  return String(err);
+}
+
+ipcMain.handle('llm:chat', async (_event, sessionId: string, message: string, systemPrompt?: string): Promise<IPCResponse<string>> => {
   try {
     const response = await chat(sessionId, message, systemPrompt);
     return { success: true, data: response };
-  } catch (err: any) {
-    console.error('[LLM] Chat error:', err.message);
-    return { success: false, error: err.message };
+  } catch (err) {
+    const msg = getErrorMessage(err);
+    console.error('[LLM] Chat error:', msg);
+    return { success: false, error: msg };
   }
 });
 
-ipcMain.handle('llm:chat-stream', async (event, sessionId: string, message: string, systemPrompt?: string) => {
+ipcMain.handle('llm:chat-stream', async (event, sessionId: string, message: string, systemPrompt?: string): Promise<IPCResponse<void>> => {
   const sender = event.sender;
   try {
     await chatStream(sessionId, message, (chunk: string) => {
@@ -440,10 +455,11 @@ ipcMain.handle('llm:chat-stream', async (event, sessionId: string, message: stri
     }, systemPrompt);
     sender.send('llm:done');
     return { success: true };
-  } catch (err: any) {
-    console.error('[LLM] Chat stream error:', err.message);
+  } catch (err) {
+    const msg = getErrorMessage(err);
+    console.error('[LLM] Chat stream error:', msg);
     sender.send('llm:done');
-    return { success: false, error: err.message };
+    return { success: false, error: msg };
   }
 });
 
@@ -451,85 +467,85 @@ ipcMain.on('llm:clear-session', (_event, sessionId: string) => {
   clearSession(sessionId).catch(err => console.error('[LLM] clearSession error:', err));
 });
 
-ipcMain.handle('llm:set-config', async (_event, config: { apiKey: string; baseURL?: string; model?: string }) => {
+ipcMain.handle('llm:set-config', async (_event, config: { apiKey: string; baseURL?: string; model?: string }): Promise<IPCResponse<void>> => {
   try {
     setApiConfig(config);
     return { success: true };
-  } catch (err: any) {
-    return { success: false, error: err.message };
+  } catch (err) {
+    return { success: false, error: getErrorMessage(err) };
   }
 });
 
-ipcMain.handle('llm:get-history', async (_event, sessionId: string) => {
+ipcMain.handle('llm:get-history', async (_event, sessionId: string): Promise<IPCResponse<unknown[]>> => {
   try {
     const history = await getHistory(sessionId);
     return { success: true, data: history };
-  } catch (err: any) {
-    return { success: false, error: err.message };
+  } catch (err) {
+    return { success: false, error: getErrorMessage(err) };
   }
 });
 
-ipcMain.handle('llm:list-sessions', async () => {
+ipcMain.handle('llm:list-sessions', async (): Promise<IPCResponse<unknown[]>> => {
   try {
     const sessions = await listSessions();
     return { success: true, data: sessions };
-  } catch (err: any) {
-    return { success: false, error: err.message };
+  } catch (err) {
+    return { success: false, error: getErrorMessage(err) };
   }
 });
 
-ipcMain.handle('llm:new-session', async (_event, title?: string) => {
+ipcMain.handle('llm:new-session', async (_event, title?: string): Promise<IPCResponse<unknown>> => {
   try {
     const session = await newSession(title);
     return { success: true, data: session };
-  } catch (err: any) {
-    return { success: false, error: err.message };
+  } catch (err) {
+    return { success: false, error: getErrorMessage(err) };
   }
 });
 
-ipcMain.handle('llm:delete-session', async (_event, sessionId: string) => {
+ipcMain.handle('llm:delete-session', async (_event, sessionId: string): Promise<IPCResponse<void>> => {
   try {
     await deleteSession(sessionId);
     return { success: true };
-  } catch (err: any) {
-    return { success: false, error: err.message };
+  } catch (err) {
+    return { success: false, error: getErrorMessage(err) };
   }
 });
 
-ipcMain.handle('llm:rename-session', async (_event, sessionId: string, title: string) => {
+ipcMain.handle('llm:rename-session', async (_event, sessionId: string, title: string): Promise<IPCResponse<void>> => {
   try {
     await renameSession(sessionId, title);
     return { success: true };
-  } catch (err: any) {
-    return { success: false, error: err.message };
+  } catch (err) {
+    return { success: false, error: getErrorMessage(err) };
   }
 });
 
-ipcMain.handle('llm:get-current-session', async () => {
+ipcMain.handle('llm:get-current-session', async (): Promise<IPCResponse<string>> => {
   try {
     const { getCurrentSessionId } = await import('./llm/chat-store');
     const id = await getCurrentSessionId();
     return { success: true, data: id };
-  } catch (err: any) {
-    return { success: false, error: err.message };
+  } catch (err) {
+    return { success: false, error: getErrorMessage(err) };
   }
 });
 
-ipcMain.handle('llm:get-models', async () => {
+ipcMain.handle('llm:get-models', async (): Promise<IPCResponse<unknown[]>> => {
   try {
     const models = getAvailableModels();
     return { success: true, data: models };
-  } catch (err: any) {
-    return { success: false, error: err.message };
+  } catch (err) {
+    return { success: false, error: getErrorMessage(err) };
   }
 });
 
-ipcMain.handle('llm:set-model', async (_event, modelId: string) => {
+ipcMain.handle('llm:set-model', async (_event, modelId: string): Promise<IPCResponse<void>> => {
   try {
     setModel(modelId);
     return { success: true };
-  } catch (err: any) {
-    return { success: false, error: err.message };
+  } catch (err) {
+    return { success: false, error: getErrorMessage(err) };
   }
 });
 
@@ -575,7 +591,7 @@ function showRegionSelector(): Promise<{ x: number; y: number; width: number; he
     regionSelectorWindow.setMenuBarVisibility(false);
 
     // 监听选区结果
-    const onSelected = (_e: any, region: { x: number; y: number; width: number; height: number }) => {
+    const onSelected = (_e: Electron.IpcMainEvent, region: { x: number; y: number; width: number; height: number }) => {
       cleanup();
       resolve(region);
     };
@@ -612,8 +628,9 @@ ipcMain.handle('ocr:screenshot', async () => {
   try {
     console.log('[OCR] Button triggered');
     return await showRegionSelectorAndOCR();
-  } catch (err: any) {
-    console.error('[OCR] Handler error:', err.message);
-    return { success: false, error: err.message };
+  } catch (err) {
+    const msg = getErrorMessage(err);
+    console.error('[OCR] Handler error:', msg);
+    return { success: false, error: msg };
   }
 });

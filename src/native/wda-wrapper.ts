@@ -1,12 +1,21 @@
 import koffi from 'koffi';
 
+// ============================================================
+// Windows Desktop API (WDA) 封装
+// 用于设置窗口防截图和不可激活样式
+// ============================================================
+
 const WDA_EXCLUDEFROMCAPTURE = 0x11;
 const WDA_MONITOR = 0x01;
 
-let user32Lib: any = null;
-let _SetWindowDisplayAffinity: any = null;
+// koffi 库类型定义
+type KoffiLib = ReturnType<typeof koffi.load>;
+type KoffiFunc = ReturnType<KoffiLib['func']>;
 
-function loadLib() {
+let user32Lib: KoffiLib | null = null;
+let _SetWindowDisplayAffinity: KoffiFunc | null = null;
+
+function loadLib(): KoffiLib | null {
   if (user32Lib) return user32Lib;
 
   if (process.platform !== 'win32') {
@@ -67,14 +76,14 @@ const SWP_NOSIZE = 0x0001;
 const SWP_NOZORDER = 0x0004;
 const SWP_NOACTIVATE = 0x0010;
 
-let _GetWindowLongPtrW: any = null;
-let _SetWindowLongPtrW: any = null;
-let _SetWindowPos: any = null;
+let _GetWindowLongPtrW: KoffiFunc | null = null;
+let _SetWindowLongPtrW: KoffiFunc | null = null;
+let _SetWindowPos: KoffiFunc | null = null;
 
-function loadStyleFuncs() {
+function loadStyleFuncs(): boolean {
   const lib = loadLib();
   if (!lib) return false;
-  
+
   if (!_GetWindowLongPtrW) {
     _GetWindowLongPtrW = lib.func('int64 GetWindowLongPtrW(int64 hWnd, int32 nIndex)');
   }
@@ -84,7 +93,7 @@ function loadStyleFuncs() {
   if (!_SetWindowPos) {
     _SetWindowPos = lib.func('bool SetWindowPos(int64 hWnd, int64 hWndInsertAfter, int32 X, int32 Y, int32 cx, int32 cy, uint32 uFlags)');
   }
-  
+
   return true;
 }
 
@@ -94,11 +103,11 @@ export function setNoActivateStyle(hwndBuffer: Buffer): boolean {
   try {
     const hwnd = hwndBuffer.readBigInt64LE(0);
 
-    let exStyle = _GetWindowLongPtrW(hwnd, GWL_EXSTYLE);
+    let exStyle = _GetWindowLongPtrW!(hwnd, GWL_EXSTYLE);
     exStyle = BigInt(exStyle) | BigInt(WS_EX_NOACTIVATE) | BigInt(WS_EX_LAYERED);
-    _SetWindowLongPtrW(hwnd, GWL_EXSTYLE, exStyle);
+    _SetWindowLongPtrW!(hwnd, GWL_EXSTYLE, exStyle);
 
-    _SetWindowPos(hwnd, 0n, 0, 0, 0, 0, SWP_FRAMECHANGED | SWP_NOMOVE | SWP_NOSIZE | SWP_NOZORDER | SWP_NOACTIVATE);
+    _SetWindowPos!(hwnd, 0n, 0, 0, 0, 0, SWP_FRAMECHANGED | SWP_NOMOVE | SWP_NOSIZE | SWP_NOZORDER | SWP_NOACTIVATE);
 
     return true;
   } catch (err) {

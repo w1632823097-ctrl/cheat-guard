@@ -178,9 +178,10 @@ export function initAudioCapture(window: BrowserWindow) {
       asrClient.connect();
 
       return { success: true, model: config.model, language: config.language };
-    } catch (err: any) {
+    } catch (err) {
+      const msg = err instanceof Error ? err.message : String(err);
       console.error('[Audio] Start recording error:', err);
-      return { success: false, error: err.message };
+      return { success: false, error: msg };
     }
   });
 
@@ -195,8 +196,9 @@ export function initAudioCapture(window: BrowserWindow) {
       const transcript = fullTranscript;
       fullTranscript = '';
       return { success: true, transcript };
-    } catch (err: any) {
-      return { success: false, error: err.message };
+    } catch (err) {
+      const msg = err instanceof Error ? err.message : String(err);
+      return { success: false, error: msg };
     }
   });
 

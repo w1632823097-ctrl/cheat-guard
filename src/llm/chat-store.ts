@@ -14,10 +14,10 @@ interface SessionMeta {
 
 // electron-store 实例接口（动态 import ESM 模块，避免类型推断问题）
 interface StoreInstance {
-  get<T = any>(key: string): T;
-  set(key: string, value: any): void;
+  get<T = unknown>(key: string): T;
+  set(key: string, value: unknown): void;
   delete(key: string): void;
-  store: any;
+  store: Record<string, unknown>;
 }
 
 const DEFAULT_SESSION_TITLE = '新对话';
@@ -25,12 +25,12 @@ const DEFAULT_SESSION_TITLE = '新对话';
 let storePromise: Promise<StoreInstance> | null = null;
 
 /** 加密存储的值 */
-function encryptStoreValue(value: any): string {
+function encryptStoreValue(value: ChatMessage[]): string {
   return encrypt(JSON.stringify(value));
 }
 
 /** 解密存储的值 */
-function decryptStoreValue(encrypted: string): any {
+function decryptStoreValue(encrypted: string): ChatMessage[] {
   return JSON.parse(decrypt(encrypted));
 }
 

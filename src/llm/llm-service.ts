@@ -157,7 +157,25 @@ function buildEndpoint(baseURL: string): string {
   return `${base}/chat/completions`;
 }
 
-function httpRequest(endpoint: string, config: LLMConfig, body: object, stream: boolean): Promise<{ status: number; data: any }> {
+interface LLMResponse {
+  choices: Array<{
+    message: {
+      content: string;
+    };
+  }>;
+}
+
+interface StreamChunk {
+  choices: Array<{
+    delta: {
+      content?: string;
+    };
+  }>;
+}
+
+type HttpResponseData = LLMResponse | http.IncomingMessage;
+
+function httpRequest(endpoint: string, config: LLMConfig, body: object, stream: boolean): Promise<{ status: number; data: HttpResponseData }> {
   return new Promise((resolve, reject) => {
     const url = new URL(endpoint);
     const mod = url.protocol === 'https:' ? https : http;
@@ -186,13 +204,13 @@ function httpRequest(endpoint: string, config: LLMConfig, body: object, stream: 
       }
 
       if (stream) {
-        resolve({ status: res.statusCode, data: res });
+        resolve({ status: res.statusCode!, data: res as http.IncomingMessage });
       } else {
         let body = '';
         res.on('data', (chunk) => { body += chunk.toString(); });
         res.on('end', () => {
           try {
-            resolve({ status: res.statusCode || 0, data: JSON.parse(body) });
+            resolve({ status: res.statusCode || 0, data: JSON.parse(body) as LLMResponse });
           } catch {
             reject(new Error('Failed to parse response: ' + body.slice(0, 200)));
           }
@@ -239,7 +257,8 @@ export async function chat(
     stream: false,
   }, false);
 
-  const assistantMessage = data.choices?.[0]?.message?.content || '(无响应)';
+  const responseData = data as LLMResponse;
+  const assistantMessage = responseData.choices?.[0]?.message?.content || '(无响应)';
   await addMessage(sessionId, { role: 'assistant', content: assistantMessage });
 
   return assistantMessage;
@@ -271,7 +290,9 @@ export async function chatStream(
   let fullResponse = '';
   let buffer = '';
 
-  for await (const chunk of stream) {
+  const streamData = stream as http.IncomingMessage;
+
+  for await (const chunk of streamData) {
     buffer += chunk.toString();
     const lines = buffer.split('\n');
     buffer = lines.pop() || '';
