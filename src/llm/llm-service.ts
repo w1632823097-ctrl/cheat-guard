@@ -15,6 +15,7 @@ import {
   hasMessages,
   type SessionInfo,
 } from './chat-store';
+import { encrypt, decrypt, isEncrypted } from '../utils/security';
 
 interface ChatMessage {
   role: 'system' | 'user' | 'assistant';
@@ -69,8 +70,18 @@ function loadConfig(): LLMConfig {
       const raw = fs.readFileSync(configPath, 'utf-8');
       const config = JSON.parse(raw);
       if (config.llm) {
+        // 解密 API Key（如果已加密）
+        let apiKey = config.llm.apiKey || envApiKey || '';
+        if (apiKey && isEncrypted(apiKey)) {
+          try {
+            apiKey = decrypt(apiKey);
+          } catch (err) {
+            console.warn('[LLM] Failed to decrypt API key, using raw value');
+          }
+        }
+
         cachedConfig = {
-          apiKey: config.llm.apiKey || envApiKey || '',
+          apiKey: apiKey,
           baseURL: config.llm.baseURL || envBaseURL || 'https://api.openai.com/v1',
           model: config.llm.model || envModel || 'gpt-4o-mini',
         };

@@ -3,6 +3,7 @@ import * as path from 'path';
 import { chat, chatStream, clearSession, setApiConfig, getHistory, getAvailableModels, setModel, listSessions, newSession, deleteSession, renameSession } from './llm/llm-service';
 import { setWindowInvisible, setNoActivateStyle, isWDAvailable } from './native/wda-wrapper';
 import { recognizeText, cleanupTempFiles, saveTempImage } from './ocr/ocr-service';
+import { startLogCleanupTimer } from './utils/security';
 import * as fs from 'fs';
 import * as os from 'os';
 
@@ -258,6 +259,9 @@ async function sendOCRToLLM(ocrText: string) {
 }
 
 app.whenReady().then(async () => {
+  // 启动日志清理定时器（每天清理一次超过7天的日志）
+  startLogCleanupTimer();
+
   createOverlayWindow();
 
   try {

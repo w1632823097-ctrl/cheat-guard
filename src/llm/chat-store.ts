@@ -1,3 +1,5 @@
+import { encrypt, decrypt } from '../utils/security';
+
 interface ChatMessage {
   role: 'system' | 'user' | 'assistant';
   content: string;
@@ -21,6 +23,16 @@ interface StoreInstance {
 const DEFAULT_SESSION_TITLE = '新对话';
 
 let storePromise: Promise<StoreInstance> | null = null;
+
+/** 加密存储的值 */
+function encryptStoreValue(value: any): string {
+  return encrypt(JSON.stringify(value));
+}
+
+/** 解密存储的值 */
+function decryptStoreValue(encrypted: string): any {
+  return JSON.parse(decrypt(encrypted));
+}
 
 async function getStore(): Promise<StoreInstance> {
   if (!storePromise) {
@@ -136,30 +148,60 @@ export async function setCurrentSessionId(id: string): Promise<void> {
 
 export async function getMessages(sessionId: string): Promise<ChatMessage[]> {
   const store = await getStore();
+  const encrypted = store.get(`sessions.${sessionId}.messages_encrypted`) as string | undefined;
+  if (encrypted) {
+    try {
+      return decryptStoreValue(encrypted) as ChatMessage[];
+    } catch {
+      // 解密失败返回空
+      return [];
+    }
+  }
+  // 兼容旧版未加密数据
   const session = store.get(`sessions.${sessionId}`) as { messages: ChatMessage[] } | undefined;
   return session ? [...session.messages] : [];
 }
 
 export async function addMessage(sessionId: string, message: ChatMessage): Promise<void> {
   const store = await getStore();
-  const session = store.get(`sessions.${sessionId}`) as { meta: SessionMeta; messages: ChatMessage[] } | undefined;
+  const session = store.get(`sessions.${sessionId}`) as { meta: SessionMeta; messages?: ChatMessage[] } | undefined;
   if (!session) return;
-  session.messages.push(message);
+
+  // 获取现有消息
+  let messages: ChatMessage[];
+  const encrypted = store.get(`sessions.${sessionId}.messages_encrypted`) as string | undefined;
+  if (encrypted) {
+    try {
+      messages = decryptStoreValue(encrypted) as ChatMessage[];
+    } catch {
+      messages = session.messages || [];
+    }
+  } else {
+    messages = session.messages || [];
+  }
+
+  messages.push(message);
   session.meta.lastMessageAt = Date.now();
   const maxMsgs = 100;
-  if (session.messages.length > maxMsgs) {
-    session.messages = session.messages.slice(-maxMsgs);
+  if (messages.length > maxMsgs) {
+    messages = messages.slice(-maxMsgs);
   }
-  store.set(`sessions.${sessionId}`, session);
+
+  // 加密存储
+  store.set(`sessions.${sessionId}.messages_encrypted`, encryptStoreValue(messages));
+  // 同时更新 meta
+  store.set(`sessions.${sessionId}.meta`, session.meta);
 }
 
 export async function setMessages(sessionId: string, messages: ChatMessage[]): Promise<void> {
   const store = await getStore();
-  const session = store.get(`sessions.${sessionId}`) as { meta: SessionMeta; messages: ChatMessage[] } | undefined;
+  const session = store.get(`sessions.${sessionId}`) as { meta: SessionMeta } | undefined;
   if (!session) return;
-  session.messages = messages;
   session.meta.lastMessageAt = Date.now();
-  store.set(`sessions.${sessionId}`, session);
+
+  // 加密存储
+  store.set(`sessions.${sessionId}.messages_encrypted`, encryptStoreValue(messages));
+  store.set(`sessions.${sessionId}.meta`, session.meta);
 }
 
 export async function clearCurrentSession(): Promise<void> {
