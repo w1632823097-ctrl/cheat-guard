@@ -47,6 +47,7 @@ function createOverlayWindow() {
   overlayWindow.setMenuBarVisibility(false);
 
   overlayWindow.once('ready-to-show', () => {
+
     if (process.platform === 'win32' && isWDAvailable()) {
       let wdaInitialized = false;
       let lastWDAFailed = false;
@@ -382,6 +383,25 @@ ipcMain.on('stop-drag', () => {
 ipcMain.on('set-overlay-opacity', (event, opacity: number) => {
   if (overlayWindow) {
     overlayWindow.setOpacity(opacity);
+  }
+});
+
+// 设置窗口高度：collapsed 时只显示 toolbar，expanded 时显示完整面板
+ipcMain.on('set-overlay-height', (event, expanded: boolean) => {
+  if (!overlayWindow) return;
+  const currentBounds = overlayWindow.getBounds();
+  if (expanded) {
+    // 展开状态：完整高度
+    overlayWindow.setBounds({
+      ...currentBounds,
+      height: 600,
+    });
+  } else {
+    // 收起状态：只保留 toolbar 区域（约 60px padding + toolbar）
+    overlayWindow.setBounds({
+      ...currentBounds,
+      height: 80,
+    });
   }
 });
 

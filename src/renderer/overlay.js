@@ -64,6 +64,9 @@ askBtn.addEventListener('click', (e) => {
   if (isExpanded) {
     chatPanel.classList.add('expanded');
     askText.textContent = 'Hide';
+    if (window.electronAPI) {
+      window.electronAPI.send('set-overlay-height', true);
+    }
     setTimeout(() => {
       if (window.electronAPI) {
         window.electronAPI.send('focus-input');
@@ -77,6 +80,7 @@ askBtn.addEventListener('click', (e) => {
     askText.textContent = 'Ask';
     if (window.electronAPI) {
       window.electronAPI.send('blur-input');
+      window.electronAPI.send('set-overlay-height', false);
     }
   }
 });
