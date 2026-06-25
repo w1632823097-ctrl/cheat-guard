@@ -208,7 +208,7 @@ body {
   max-height: 0;
   overflow: hidden;
   opacity: 0;
-  margin-top: 8px;
+  margin-top: 4px;
   background: rgba(13, 15, 20, 0.88);
   backdrop-filter: blur(20px);
   -webkit-backdrop-filter: blur(20px);
@@ -327,9 +327,10 @@ body {
   box-shadow: 0 8px 32px rgba(0, 0, 0, 0.5);
   z-index: 100;
   padding: 3px;
-  animation: dropdownIn 0.12s ease-out;
+  animation: dropdownIn 0.15s cubic-bezier(0.22, 1, 0.36, 1);
   max-height: 200px;
   overflow-y: auto;
+  transform-origin: top center;
 }
 
 .session-dropdown::-webkit-scrollbar { width: 3px; }
@@ -362,6 +363,7 @@ body {
 .session-dropdown-item:hover {
   background: rgba(255, 255, 255, 0.06);
   color: rgba(255, 255, 255, 0.85);
+  transform: translateX(2px);
 }
 
 .session-dropdown-item.active {
@@ -552,19 +554,24 @@ body {
   align-items: flex-start;
   gap: 7px;
   max-width: 92%;
-  animation: msgIn 0.2s ease-out;
+  animation: msgIn 0.35s cubic-bezier(0.22, 1, 0.36, 1);
+  transition: transform 0.2s ease;
+}
+
+.message-row:hover {
+  transform: translateX(2px);
 }
 
 .message-row.user      { align-self: flex-end; }
 .message-row.assistant { align-self: flex-start; }
 
 @keyframes msgIn {
-  from { opacity: 0; transform: translateY(4px); }
-  to   { opacity: 1; transform: translateY(0); }
+  from { opacity: 0; transform: translateY(8px) scale(0.95); }
+  to   { opacity: 1; transform: translateY(0) scale(1); }
 }
 
-.msg-avatar { flex-shrink: 0; width: 26px; height: 26px; margin-top: 2px; }
-.msg-avatar svg { width: 26px; height: 26px; }
+.msg-avatar { flex-shrink: 0; width: 22px; height: 22px; margin-top: 2px; }
+.msg-avatar svg { width: 22px; height: 22px; }
 
 .msg-body {
   display: flex;
@@ -583,6 +590,7 @@ body {
   font-size: 13px;
   line-height: 1.6;
   word-break: break-word;
+  transition: box-shadow 0.2s ease, transform 0.15s ease;
 }
 
 .message-row.user .msg-bubble {
@@ -590,6 +598,12 @@ body {
   color: rgba(255, 255, 255, 0.92);
   border: 1px solid rgba(255, 255, 255, 0.10);
   border-bottom-right-radius: 3px;
+  box-shadow: 0 1px 3px rgba(0,0,0,0.15);
+}
+
+.message-row.user:hover .msg-bubble {
+  box-shadow: 0 2px 8px rgba(0,0,0,0.25);
+  transform: translateY(-1px);
 }
 
 .message-row.assistant .msg-bubble {
@@ -605,6 +619,11 @@ body {
   color: rgba(255, 255, 255, 0.15);
   margin-top: 2px;
   padding: 0 2px;
+  transition: color 0.2s ease;
+}
+
+.message-row:hover .msg-time {
+  color: rgba(255, 255, 255, 0.35);
 }
 
 .message-row.error .msg-bubble {
@@ -763,12 +782,14 @@ body {
   border-radius: 14px;
   background: rgba(255, 255, 255, 0.04);
   flex-shrink: 0;
-  transition: border-color 0.2s;
+  transition: border-color 0.2s, background 0.2s, box-shadow 0.2s;
+  box-shadow: 0 1px 3px rgba(0,0,0,0.1);
 }
 
 .chat-input-area:focus-within {
   border-color: rgba(255, 255, 255, 0.22);
   background: rgba(255, 255, 255, 0.06);
+  box-shadow: 0 2px 8px rgba(0,0,0,0.2);
 }
 
 .chat-input {
@@ -949,7 +970,8 @@ body {
   box-shadow: 0 8px 32px rgba(0, 0, 0, 0.5);
   z-index: 100;
   padding: 4px;
-  animation: dropdownIn 0.15s ease-out;
+  animation: dropdownIn 0.15s cubic-bezier(0.22, 1, 0.36, 1);
+  transform-origin: bottom right;
 }
 
 @keyframes dropdownIn {
@@ -979,6 +1001,7 @@ body {
 .model-dropdown-item:hover {
   background: rgba(255, 255, 255, 0.06);
   color: rgba(255, 255, 255, 0.85);
+  transform: translateX(2px);
 }
 
 .model-dropdown-item.active {
