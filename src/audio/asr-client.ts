@@ -36,6 +36,8 @@ export class Qwen3ASRClient {
   private reconnectTimer: ReturnType<typeof setTimeout> | null = null;
   private reconnectAttempts = 0;
   private maxReconnectAttempts = 3;
+  /** 连接建立前的音频缓冲队列 */
+  private pendingAudio: string[] = [];
 
   constructor(
     apiKey: string,
@@ -56,11 +58,11 @@ export class Qwen3ASRClient {
     this.setState('connecting');
 
     const fullUrl = `${this.wsUrl}?model=${this.config.model}`;
-
+    
     this.ws = new WebSocket(fullUrl, {
       headers: {
         'Authorization': `Bearer ${this.apiKey}`,
-        'User-Agent': 'cheat-guard/1.0',
+        'user-agent': 'cheat-guard/1.0',
       },
     });
 
@@ -72,19 +74,40 @@ export class Qwen3ASRClient {
 
   /** 发送音频数据 (PCM 16kHz 16bit 单声道) */
   sendAudio(data: ArrayBuffer | Buffer): void {
+    const buf = Buffer.isBuffer(data) ? data : Buffer.from(data as ArrayBuffer);
+    const base64 = buf.toString('base64');
+
     if (!this.ws || this.ws.readyState !== WebSocket.OPEN) {
-      console.warn('[ASR] Cannot send audio: WebSocket not open');
+      // 连接尚未建立, 缓冲音频数据 (最多保留最近 2 秒 = ~8 个 chunk)
+      if (this.pendingAudio.length < 50) {
+        this.pendingAudio.push(base64);
+      }
       return;
     }
 
-    const buf = Buffer.isBuffer(data) ? data : Buffer.from(data as ArrayBuffer);
-    const base64 = buf.toString('base64');
-    const message = JSON.stringify({
+    this.ws.send(JSON.stringify({
       event_id: this.genEventId(),
       type: 'input_audio_buffer.append',
       audio: base64,
-    });
-    this.ws.send(message);
+    }));
+  }
+
+  /** 刷新缓冲的音频数据到 WebSocket */
+  private flushPendingAudio(): void {
+    if (!this.ws || this.ws.readyState !== WebSocket.OPEN) return;
+
+    const count = this.pendingAudio.length;
+    for (const audio of this.pendingAudio) {
+      this.ws.send(JSON.stringify({
+        event_id: this.genEventId(),
+        type: 'input_audio_buffer.append',
+        audio,
+      }));
+    }
+    this.pendingAudio = [];
+    if (count > 0) {
+      console.log(`[ASR] Flushed ${count} buffered audio chunks`);
+    }
   }
 
   /** 手动提交音频 (Manual 模式下使用) */
@@ -108,6 +131,7 @@ export class Qwen3ASRClient {
   /** 断开连接 */
   disconnect(): void {
     this.cancelReconnect();
+    this.pendingAudio = [];
     if (this.ws) {
       this.ws.close(1000, 'client disconnect');
       this.ws = null;
@@ -144,6 +168,9 @@ export class Qwen3ASRClient {
 
     // 发送 session.update 配置会话
     this.sendSessionUpdate();
+
+    // 刷新连接前缓冲的音频数据
+    this.flushPendingAudio();
   }
 
   private sendSessionUpdate(): void {
@@ -275,7 +302,7 @@ const DEFAULT_CONFIG: ASRConfig = {
   model: 'qwen3-asr-flash-realtime',
   language: 'zh',
   sample_rate: 16000,
-  input_audio_format: 'pcm',  // Qwen3-ASR Realtime API 的有效值: pcm/wav/opus
+  input_audio_format: 'pcm',  // Qwen3-ASR Realtime API: 与 Python SDK 一致使用 pcm
   vad_threshold: 0.0,
   vad_silence_duration_ms: 400,
 };

@@ -110,6 +110,11 @@ export function initAudioCapture(window: BrowserWindow) {
   mainWindow = window;
   initialized = true;
 
+  // ---- audio:log (渲染进程调试日志 → 终端) ----
+  ipcMain.on('audio:log', (_event, message: string) => {
+    console.log('[Audio/Renderer]', message);
+  });
+
   // ---- audio:start-recording ----
   ipcMain.handle('audio:start-recording', async () => {
     try {
@@ -214,7 +219,7 @@ export function initAudioCapture(window: BrowserWindow) {
 
   // ---- audio:chunk (来自渲染进程的 PCM 音频数据) ----
   ipcMain.on('audio:chunk', (_event, chunk: ArrayBuffer) => {
-    if (asrClient && isRecording) {
+    if (asrClient) {
       asrClient.sendAudio(Buffer.from(chunk));
     }
   });

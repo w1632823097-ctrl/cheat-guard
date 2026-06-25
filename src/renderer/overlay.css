@@ -225,8 +225,8 @@ body {
 }
 
 .chat-panel.expanded {
-  height: 380px;
-  max-height: 380px;
+  height: 430px;
+  max-height: 430px;
   opacity: 1;
   transform: translateY(0) scale(1);
 }
@@ -415,30 +415,29 @@ body {
 /* 新建会话按钮 */
 .new-session-btn {
   -webkit-app-region: no-drag;
-  width: 26px;
-  height: 26px;
+  width: 100%;
+  padding: 8px 12px;
   border-radius: 6px;
   border: 1px solid rgba(255, 255, 255, 0.08);
   background: rgba(255, 255, 255, 0.04);
-  color: rgba(255, 255, 255, 0.35);
-  font-size: 16px;
+  color: rgba(255, 255, 255, 0.55);
+  font-size: 12px;
   font-weight: 500;
   cursor: pointer;
   transition: background 0.15s, border-color 0.15s, color 0.15s;
-  flex-shrink: 0;
   outline: none;
   display: flex;
   align-items: center;
   justify-content: center;
-  padding: 0;
-  line-height: 1;
+  gap: 4px;
   font-family: inherit;
+  margin-top: 4px;
 }
 
 .new-session-btn:hover {
   background: rgba(99, 102, 241, 0.12);
   border-color: rgba(99, 102, 241, 0.25);
-  color: rgba(255, 255, 255, 0.75);
+  color: rgba(255, 255, 255, 0.85);
 }
 
 /* 面板头部右侧 */
@@ -667,35 +666,118 @@ body {
   min-height: 36px;
 }
 
-/* 输入区域 */
-.chat-input-area {
+/* 录音状态（聊天面板） */
+.recording-status-panel {
   display: flex;
   align-items: center;
-  gap: 7px;
-  padding: 10px 12px;
-  border-top: 1px solid rgba(255, 255, 255, 0.06);
+  gap: 8px;
+  padding: 8px 12px;
+  background: rgba(239, 68, 68, 0.1);
+  border: 1px solid rgba(239, 68, 68, 0.2);
+  border-radius: 8px;
+  margin: 0 12px 8px;
+  font-size: 12px;
+  color: rgba(252, 165, 165, 0.9);
+}
+
+.recording-status-panel .recording-dot {
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+  background: #ef4444;
+  animation: recordingDotPulse 1s ease-in-out infinite;
+}
+
+.recording-status-panel .recording-transcription {
+  font-size: 11px;
+  color: rgba(255, 255, 255, 0.6);
+  max-width: 200px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+/* 录音状态（工具栏） */
+.recording-status {
+  display: flex;
+  align-items: center;
+  gap: 5px;
+  font-size: 11.5px;
+  color: rgba(252, 165, 165, 0.8);
+  font-weight: 500;
+  margin-right: 8px;
+}
+
+.recording-status .recording-dot {
+  width: 6px;
+  height: 6px;
+  border-radius: 50%;
+  background: #ef4444;
+  animation: recordingDotPulse 1s ease-in-out infinite;
+}
+
+.recording-status .recording-transcription {
+  font-size: 10px;
+  color: rgba(255, 255, 255, 0.4);
+  max-width: 120px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+/* 输入区域 - 统一卡片 */
+.chat-input-area {
+  display: flex;
+  flex-direction: column;
+  margin: 0 12px 10px;
+  padding: 10px 12px 8px;
+  border: 1px solid rgba(255, 255, 255, 0.12);
+  border-radius: 14px;
+  background: rgba(255, 255, 255, 0.04);
   flex-shrink: 0;
+  transition: border-color 0.2s;
+}
+
+.chat-input-area:focus-within {
+  border-color: rgba(255, 255, 255, 0.22);
+  background: rgba(255, 255, 255, 0.06);
 }
 
 .chat-input {
-  flex: 1;
-  padding: 7px 11px;
-  border: 1px solid rgba(255, 255, 255, 0.10);
-  border-radius: 9px;
-  background: rgba(255, 255, 255, 0.05);
+  width: 100%;
+  box-sizing: border-box;
+  padding: 4px 0;
+  border: none;
+  border-radius: 0;
+  background: transparent;
   color: rgba(255, 255, 255, 0.9);
   font-size: 13px;
+  line-height: 1.5;
   outline: none;
-  transition: border-color 0.15s, background 0.15s;
   font-family: inherit;
+  resize: none;
+  min-height: 60px;
 }
 
-.chat-input:focus {
-  border-color: rgba(255, 255, 255, 0.22);
-  background: rgba(255, 255, 255, 0.08);
+.chat-input:disabled {
+  opacity: 0.5;
 }
 
 .chat-input::placeholder { color: rgba(255, 255, 255, 0.2); }
+
+/* 输入区底部行：全部右对齐 */
+.chat-input-buttons {
+  display: flex;
+  align-items: center;
+  justify-content: flex-end;
+  padding-top: 6px;
+}
+
+.chat-input-actions {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
 
 .send-btn {
   display: flex;
@@ -766,10 +848,10 @@ body {
   -webkit-app-region: no-drag;
   display: flex;
   align-items: center;
-  justify-content: center;
-  width: 32px;
-  height: 32px;
-  border-radius: 9px;
+  gap: 5px;
+  padding: 0 9px;
+  height: 30px;
+  border-radius: 8px;
   border: 1px solid rgba(255, 255, 255, 0.08);
   background: rgba(255, 255, 255, 0.04);
   color: rgba(255, 255, 255, 0.35);
@@ -777,6 +859,8 @@ body {
   transition: background 0.15s, border-color 0.15s, color 0.15s;
   outline: none;
   flex-shrink: 0;
+  font-family: inherit;
+  font-size: 11px;
 }
 
 .model-btn:hover {
@@ -789,6 +873,14 @@ body {
   background: rgba(139, 92, 246, 0.15);
   border-color: rgba(139, 92, 246, 0.3);
   color: rgba(255, 255, 255, 0.85);
+}
+
+.model-btn-text {
+  max-width: 80px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  font-weight: 500;
 }
 
 .model-btn svg {
@@ -1024,4 +1116,36 @@ body {
   font-size: 12px;
   color: rgba(255, 255, 255, 0.55);
   line-height: 1.5;
+}
+
+/* ============================================================
+   时间分隔线
+   ============================================================ */
+.message-time-divider {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  margin: 12px 0;
+  position: relative;
+}
+
+.message-time-divider::before {
+  content: '';
+  position: absolute;
+  left: 0;
+  right: 0;
+  top: 50%;
+  height: 1px;
+  background: rgba(255, 255, 255, 0.06);
+}
+
+.message-time-divider span {
+  position: relative;
+  z-index: 1;
+  padding: 2px 10px;
+  background: rgba(13, 15, 20, 0.88);
+  border-radius: 10px;
+  font-size: 10px;
+  color: rgba(255, 255, 255, 0.3);
+  font-weight: 500;
 }

@@ -110,9 +110,17 @@ recordBtn.addEventListener('click', async (e) => {
         if (dot) dot.style.display = 'block';
 
         try {
+          // 记录日志到终端
+          if (window.electronAPI?.audio?.log) {
+            window.electronAPI.audio.log('Requesting mic permission...');
+          }
           mediaStream = await navigator.mediaDevices.getUserMedia({
-            audio: { channelCount: 1, sampleRate: 16000, echoCancellation: true, noiseSuppression: true }
+            audio: { channelCount: { ideal: 1 }, sampleRate: { ideal: 16000 }, echoCancellation: true, noiseSuppression: true }
           });
+          const actualSampleRate = mediaStream.getAudioTracks()[0]?.getSettings()?.sampleRate;
+          if (window.electronAPI?.audio?.log) {
+            window.electronAPI.audio.log('Mic access granted, actual sample rate: ' + actualSampleRate);
+          }
           audioContext = new AudioContext({ sampleRate: 16000 });
           sourceNode = audioContext.createMediaStreamSource(mediaStream);
           scriptNode = audioContext.createScriptProcessor(2048, 1, 1);
@@ -130,9 +138,14 @@ recordBtn.addEventListener('click', async (e) => {
 
           sourceNode.connect(scriptNode);
           scriptNode.connect(audioContext.destination);
-          console.log('[Audio] Microphone capture started');
+          if (window.electronAPI?.audio?.log) {
+            window.electronAPI.audio.log('Microphone capture started OK');
+          }
         } catch (err) {
           console.error('[Audio] Mic access denied:', err);
+          if (window.electronAPI?.audio?.log) {
+            window.electronAPI.audio.log('Mic access FAILED: ' + (err instanceof Error ? err.message : String(err)));
+          }
         }
       }
     }

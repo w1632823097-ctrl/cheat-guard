@@ -27,6 +27,7 @@ contextBridge.exposeInMainWorld('electronAPI', {
     checkStatus: () => ipcRenderer.invoke('audio:check-status'),
     sendChunk: (chunk: ArrayBuffer) => ipcRenderer.send('audio:chunk', chunk),
     setConfig: (config: Record<string, unknown>) => ipcRenderer.invoke('audio:set-config', config),
+    log: (message: string) => ipcRenderer.send('audio:log', message),
   },
 
   // Transcription events

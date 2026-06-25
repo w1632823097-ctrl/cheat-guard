@@ -4,8 +4,9 @@
   "description": "实时 AI 桌面助手 - 隐形覆盖层",
   "main": "dist/main.js",
   "scripts": {
-    "dev": "chcp 65001 >nul && tsc && electron .",
-    "build": "tsc",
+    "dev": "chcp 65001 >nul && tsc && vite build --config vite.config.ts && electron .",
+    "dev:renderer": "vite --config vite.config.ts",
+    "build": "tsc && vite build --config vite.config.ts",
     "start": "npm run build && electron .",
     "dist": "electron-builder",
     "dist:cn": "set ELECTRON_MIRROR=https://npmmirror.com/mirrors/electron/&& set ELECTRON_BUILDER_BINARIES_MIRROR=https://npmmirror.com/mirrors/electron-builder-binaries/&& set CSC_IDENTITY_AUTO_DISCOVERY=false&& npm run build && electron-builder --win",
@@ -22,8 +23,6 @@
   "license": "ISC",
   "devDependencies": {
     "@types/node": "^20.0.0",
-    "@types/react": "^18.0.0",
-    "@types/react-dom": "^18.0.0",
     "@types/ws": "^8.18.1",
     "electron": "^28.0.0",
     "electron-builder": "^24.0.0",
@@ -32,11 +31,17 @@
     "typescript": "^5.3.0"
   },
   "dependencies": {
+    "@types/react": "^18.3.31",
+    "@types/react-dom": "^18.3.7",
+    "@vitejs/plugin-react": "^4.7.0",
     "axios": "^1.18.0",
     "electron-store": "^11.0.2",
     "highlight.js": "^11.11.1",
     "koffi": "^3.0.2",
+    "react": "^18.3.1",
+    "react-dom": "^18.3.1",
     "tesseract.js": "^7.0.0",
+    "vite": "^4.5.14",
     "ws": "^8.21.0"
   },
   "build": {

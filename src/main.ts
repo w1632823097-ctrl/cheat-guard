@@ -1,4 +1,4 @@
-import { app, BrowserWindow, globalShortcut, ipcMain, desktopCapturer } from 'electron';
+import { app, BrowserWindow, globalShortcut, ipcMain, desktopCapturer, session } from 'electron';
 import * as path from 'path';
 import { chat, chatStream, clearSession, setApiConfig, getHistory, getAvailableModels, setModel, listSessions, newSession, deleteSession, renameSession } from './llm/llm-service';
 import { setWindowInvisible, setNoActivateStyle, isWDAvailable } from './native/wda-wrapper';
@@ -46,7 +46,18 @@ function createOverlayWindow() {
     },
   });
 
-  overlayWindow.loadFile('src/renderer/overlay.html');
+  // 加载渲染进程页面
+  // 优先尝试 Vite 开发服务器（热更新），否则使用构建产物
+  const isDev = !app.isPackaged;
+  if (isDev) {
+    // 尝试连接 Vite 开发服务器
+    overlayWindow.loadURL('http://localhost:5173').catch(() => {
+      console.warn('[Main] Vite dev server not running, falling back to built files');
+      overlayWindow?.loadFile(path.join(__dirname, '..', 'dist', 'renderer', 'index.html'));
+    });
+  } else {
+    overlayWindow.loadFile(path.join(__dirname, '..', 'dist', 'renderer', 'index.html'));
+  }
   overlayWindow.setVisibleOnAllWorkspaces(true);
   overlayWindow.setMenuBarVisibility(false);
 
@@ -260,6 +271,23 @@ async function sendOCRToLLM(ocrText: string) {
 }
 
 app.whenReady().then(async () => {
+  // ---- Electron麦克风权限：允许来自 overlayWindow 的 media 请求 ----
+  session.defaultSession.setPermissionRequestHandler(
+    (_webContents, permission, callback) => {
+      if (permission === 'media') {
+        callback(true);
+      } else {
+        callback(false);
+      }
+    },
+  );
+  // 同时处理已废弃的 media 权限检查回调 (兼容旧版 Electron)
+  session.defaultSession.setPermissionCheckHandler(
+    (_webContents, permission) => {
+      return permission === 'media';
+    },
+  );
+
   // 启动日志清理定时器（每天清理一次超过7天的日志）
   startLogCleanupTimer();
 
