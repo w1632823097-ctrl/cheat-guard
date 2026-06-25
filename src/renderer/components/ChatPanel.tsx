@@ -1,4 +1,4 @@
-import React, { useState, useRef, useEffect } from 'react';
+import React, { useState, useRef, useEffect, useCallback } from 'react';
 import { useApp } from '../hooks/useAppState';
 import MessageList from './MessageList';
 import ChatInput from './ChatInput';
@@ -10,25 +10,24 @@ export default function ChatPanel() {
   const chatPanelRef = useRef<HTMLDivElement>(null);
   const sessionDropdownRef = useRef<HTMLDivElement>(null);
 
-  // 加载历史消息
+  // 加载会话列表
   useEffect(() => {
-    if (isExpanded && currentSessionId) {
-      loadSessionHistory(currentSessionId);
-    }
-  }, [isExpanded, currentSessionId]);
+    loadSessions();
+  }, []);
 
-  // 点击外部关闭下拉
-  useEffect(() => {
-    const handleClickOutside = (e: MouseEvent) => {
-      if (isSessionDropdownOpen && sessionDropdownRef.current && !sessionDropdownRef.current.contains(e.target as Node)) {
-        setIsSessionDropdownOpen(false);
+  const loadSessions = useCallback(async () => {
+    if (!window.electronAPI?.llm?.listSessions) return;
+    try {
+      const result = await window.electronAPI.llm.listSessions();
+      if (result.success && Array.isArray(result.data)) {
+        setSessions(result.data as any[]);
       }
-    };
-    document.addEventListener('click', handleClickOutside);
-    return () => document.removeEventListener('click', handleClickOutside);
-  }, [isSessionDropdownOpen]);
+    } catch (err) {
+      console.error('[Sessions] Failed to load:', err);
+    }
+  }, [setSessions]);
 
-  const loadSessionHistory = async (sessionId: string) => {
+  const loadSessionHistory = useCallback(async (sessionId: string) => {
     if (!window.electronAPI?.llm?.getHistory) return;
     try {
       setIsLoadingHistory(true);
@@ -51,7 +50,25 @@ export default function ChatPanel() {
     } finally {
       setIsLoadingHistory(false);
     }
-  };
+  }, [addMessage, clearMessages]);
+
+  // 加载历史消息
+  useEffect(() => {
+    if (isExpanded && currentSessionId) {
+      loadSessionHistory(currentSessionId);
+    }
+  }, [isExpanded, currentSessionId, loadSessionHistory]);
+
+  // 点击外部关闭下拉
+  useEffect(() => {
+    const handleClickOutside = (e: MouseEvent) => {
+      if (isSessionDropdownOpen && sessionDropdownRef.current && !sessionDropdownRef.current.contains(e.target as Node)) {
+        setIsSessionDropdownOpen(false);
+      }
+    };
+    document.addEventListener('click', handleClickOutside);
+    return () => document.removeEventListener('click', handleClickOutside);
+  }, [isSessionDropdownOpen]);
 
   const handleOpacityChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     const value = parseInt(e.target.value);
@@ -181,15 +198,22 @@ export default function ChatPanel() {
                   </button>
                 </div>
               ))}
-              <button className="new-session-btn" onClick={handleNewSession}>
-                + 新建会话
-              </button>
             </div>
           )}
         </div>
         
-        {/* 右侧：消息计数 */}
+        {/* 右侧：新建会话 + 消息计数 */}
         <div className="panel-controls">
+          <button
+            className="new-session-icon-btn"
+            onClick={handleNewSession}
+            title="新建会话"
+          >
+            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round">
+              <line x1="12" y1="5" x2="12" y2="19"/>
+              <line x1="5" y1="12" x2="19" y2="12"/>
+            </svg>
+          </button>
           <span className="panel-count">{messages.length} 条消息</span>
         </div>
       </div>

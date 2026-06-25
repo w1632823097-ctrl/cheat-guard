@@ -1,3 +1,6 @@
+import * as fs from 'fs';
+import * as path from 'path';
+import * as os from 'os';
 import { encrypt, decrypt } from '../utils/security';
 
 interface ChatMessage {
@@ -12,17 +15,27 @@ interface SessionMeta {
   lastMessageAt: number;
 }
 
-// electron-store 实例接口（动态 import ESM 模块，避免类型推断问题）
-interface StoreInstance {
-  get<T = unknown>(key: string): T;
-  set(key: string, value: unknown): void;
-  delete(key: string): void;
-  store: Record<string, unknown>;
+interface SessionData {
+  meta: SessionMeta;
+  messages_encrypted?: string;
+  messages?: ChatMessage[]; // 兼容旧格式
+}
+
+interface StoreData {
+  currentSessionId: string;
+  sessions: Record<string, SessionData>;
 }
 
 const DEFAULT_SESSION_TITLE = '新对话';
 
-let storePromise: Promise<StoreInstance> | null = null;
+/** 获取存储文件路径 */
+function getStorePath(): string {
+  const dir = path.join(os.homedir(), '.cheat-guard');
+  if (!fs.existsSync(dir)) {
+    fs.mkdirSync(dir, { recursive: true });
+  }
+  return path.join(dir, 'chat-history.json');
+}
 
 /** 加密存储的值 */
 function encryptStoreValue(value: ChatMessage[]): string {
@@ -34,57 +47,72 @@ function decryptStoreValue(encrypted: string): ChatMessage[] {
   return JSON.parse(decrypt(encrypted));
 }
 
-async function getStore(): Promise<StoreInstance> {
-  if (!storePromise) {
-    storePromise = (async () => {
-      // 用 new Function 构造真正的动态 import，避免 tsc 将其编译为 require()
-      // （electron-store v10+ 是纯 ESM，不支持 require）
-      const dynamicImport = new Function('specifier', 'return import(specifier)') as (specifier: string) => Promise<any>;
-      const { default: StoreClass } = await dynamicImport('electron-store');
-      const store = new StoreClass({
-        name: 'chat-history',
-        defaults: {
-          currentSessionId: 'default',
-          sessions: {
-            default: {
-              meta: {
-                id: 'default',
-                title: DEFAULT_SESSION_TITLE,
-                createdAt: Date.now(),
-                lastMessageAt: Date.now(),
-              },
-              messages: [],
-            },
-          },
+/** 读取整个存储数据 */
+function readStore(): StoreData {
+  const storePath = getStorePath();
+  const defaults: StoreData = {
+    currentSessionId: 'default',
+    sessions: {
+      default: {
+        meta: {
+          id: 'default',
+          title: DEFAULT_SESSION_TITLE,
+          createdAt: Date.now(),
+          lastMessageAt: Date.now(),
         },
-      }) as unknown as StoreInstance;
-      return store;
-    })();
+      },
+    },
+  };
+
+  if (!fs.existsSync(storePath)) {
+    console.log('[ChatStore] No store file found, using defaults');
+    return defaults;
   }
-  return storePromise;
+
+  try {
+    const raw = fs.readFileSync(storePath, 'utf-8');
+    const data = JSON.parse(raw) as StoreData;
+    // 确保 default session 存在
+    if (!data.sessions.default) {
+      data.sessions.default = defaults.sessions.default;
+    }
+    console.log('[ChatStore] Store loaded, sessions:', Object.keys(data.sessions).length);
+    return data;
+  } catch (err) {
+    console.error('[ChatStore] Failed to read store file:', err);
+    return defaults;
+  }
 }
 
-export interface SessionInfo {
-  id: string;
-  title: string;
-  createdAt: number;
-  lastMessageAt: number;
-  messageCount: number;
+/** 写入整个存储数据 */
+function writeStore(data: StoreData): void {
+  const storePath = getStorePath();
+  try {
+    const dir = path.dirname(storePath);
+    if (!fs.existsSync(dir)) {
+      fs.mkdirSync(dir, { recursive: true });
+    }
+    fs.writeFileSync(storePath, JSON.stringify(data, null, 2), 'utf-8');
+    console.log('[ChatStore] Store written successfully');
+  } catch (err) {
+    console.error('[ChatStore] Failed to write store file:', err);
+  }
 }
 
-// --- Sessions ---
+// ═══════════════════════════════════════════
+// Sessions
+// ═══════════════════════════════════════════
 
 export async function listSessions(): Promise<SessionInfo[]> {
-  const store = await getStore();
-  const sessions = store.get('sessions') as Record<string, { meta: SessionMeta; messages: ChatMessage[] }>;
+  const data = readStore();
   const result: SessionInfo[] = [];
-  for (const [id, s] of Object.entries(sessions)) {
+  for (const [id, s] of Object.entries(data.sessions)) {
     result.push({
       id,
       title: s.meta.title,
       createdAt: s.meta.createdAt,
       lastMessageAt: s.meta.lastMessageAt,
-      messageCount: s.messages.length,
+      messageCount: getMessageCount(s),
     });
   }
   result.sort((a, b) => b.lastMessageAt - a.lastMessageAt);
@@ -92,7 +120,7 @@ export async function listSessions(): Promise<SessionInfo[]> {
 }
 
 export async function newSession(title?: string): Promise<SessionInfo> {
-  const store = await getStore();
+  const data = readStore();
   const id = 'session_' + Date.now();
   const now = Date.now();
   const meta: SessionMeta = {
@@ -101,7 +129,8 @@ export async function newSession(title?: string): Promise<SessionInfo> {
     createdAt: now,
     lastMessageAt: now,
   };
-  store.set(`sessions.${id}`, { meta, messages: [] });
+  data.sessions[id] = { meta };
+  writeStore(data);
   return {
     id,
     title: meta.title,
@@ -112,106 +141,146 @@ export async function newSession(title?: string): Promise<SessionInfo> {
 }
 
 export async function deleteSession(sessionId: string): Promise<void> {
-  const store = await getStore();
-  const sessions = store.get('sessions') as Record<string, any>;
-  if (!sessions[sessionId]) return;
-  delete sessions[sessionId];
-  store.set('sessions', sessions);
-  if (store.get('currentSessionId') === sessionId) {
-    const remaining = Object.keys(sessions);
-    store.set('currentSessionId', remaining.length > 0 ? remaining[0] : '');
+  const data = readStore();
+  if (!data.sessions[sessionId]) return;
+  delete data.sessions[sessionId];
+  if (data.currentSessionId === sessionId) {
+    const remaining = Object.keys(data.sessions);
+    data.currentSessionId = remaining.length > 0 ? remaining[0] : 'default';
+    // 确保至少有一个会话
+    if (remaining.length === 0) {
+      const now = Date.now();
+      data.sessions.default = {
+        meta: {
+          id: 'default',
+          title: DEFAULT_SESSION_TITLE,
+          createdAt: now,
+          lastMessageAt: now,
+        },
+      };
+      data.currentSessionId = 'default';
+    }
   }
+  writeStore(data);
 }
 
 export async function renameSession(sessionId: string, title: string): Promise<void> {
-  const store = await getStore();
-  const session = store.get(`sessions.${sessionId}`) as { meta: SessionMeta; messages: ChatMessage[] } | undefined;
+  const data = readStore();
+  const session = data.sessions[sessionId];
   if (!session) return;
   session.meta.title = title;
-  store.set(`sessions.${sessionId}`, session);
+  writeStore(data);
 }
 
 export async function getCurrentSessionId(): Promise<string> {
-  const store = await getStore();
-  return store.get('currentSessionId') as string;
+  const data = readStore();
+  return data.currentSessionId;
 }
 
 export async function setCurrentSessionId(id: string): Promise<void> {
-  const store = await getStore();
-  const sessions = store.get('sessions') as Record<string, any>;
-  if (sessions[id]) {
-    store.set('currentSessionId', id);
+  const data = readStore();
+  if (data.sessions[id]) {
+    data.currentSessionId = id;
+    writeStore(data);
   }
 }
 
-// --- Messages ---
+// ═══════════════════════════════════════════
+// Messages
+// ═══════════════════════════════════════════
 
-export async function getMessages(sessionId: string): Promise<ChatMessage[]> {
-  const store = await getStore();
-  const encrypted = store.get(`sessions.${sessionId}.messages_encrypted`) as string | undefined;
-  if (encrypted) {
+function getMessageCount(session: SessionData): number {
+  if (session.messages_encrypted) {
     try {
-      return decryptStoreValue(encrypted) as ChatMessage[];
+      return decryptStoreValue(session.messages_encrypted).length;
     } catch {
-      // 解密失败返回空
-      return [];
+      // ignore
     }
   }
-  // 兼容旧版未加密数据
-  const session = store.get(`sessions.${sessionId}`) as { messages: ChatMessage[] } | undefined;
-  return session ? [...session.messages] : [];
+  return (session.messages || []).length;
 }
 
-export async function addMessage(sessionId: string, message: ChatMessage): Promise<void> {
-  const store = await getStore();
-  const session = store.get(`sessions.${sessionId}`) as { meta: SessionMeta; messages?: ChatMessage[] } | undefined;
-  if (!session) return;
-
-  // 获取现有消息
-  let messages: ChatMessage[];
-  const encrypted = store.get(`sessions.${sessionId}.messages_encrypted`) as string | undefined;
-  if (encrypted) {
+function loadMessages(session: SessionData): ChatMessage[] {
+  if (session.messages_encrypted) {
     try {
-      messages = decryptStoreValue(encrypted) as ChatMessage[];
-    } catch {
-      messages = session.messages || [];
+      const decrypted = decryptStoreValue(session.messages_encrypted);
+      if (decrypted.length > 0) {
+        return decrypted;
+      }
+    } catch (err) {
+      console.error('[ChatStore] Failed to decrypt messages:', err);
     }
-  } else {
-    messages = session.messages || [];
   }
+  return session.messages || [];
+}
 
-  messages.push(message);
-  session.meta.lastMessageAt = Date.now();
+function saveMessages(session: SessionData, messages: ChatMessage[]): void {
   const maxMsgs = 100;
   if (messages.length > maxMsgs) {
     messages = messages.slice(-maxMsgs);
   }
+  session.messages_encrypted = encryptStoreValue(messages);
+  // 清理旧格式的明文 messages 字段（节省空间）
+  delete session.messages;
+}
 
-  // 加密存储
-  store.set(`sessions.${sessionId}.messages_encrypted`, encryptStoreValue(messages));
-  // 同时更新 meta
-  store.set(`sessions.${sessionId}.meta`, session.meta);
+export async function getMessages(sessionId: string): Promise<ChatMessage[]> {
+  const data = readStore();
+  const session = data.sessions[sessionId];
+  if (!session) return [];
+  return loadMessages(session);
+}
+
+export async function addMessage(sessionId: string, message: ChatMessage): Promise<void> {
+  const data = readStore();
+  const session = data.sessions[sessionId];
+  if (!session) {
+    console.warn('[ChatStore] Session not found:', sessionId);
+    return;
+  }
+
+  const messages = loadMessages(session);
+  messages.push(message);
+  session.meta.lastMessageAt = Date.now();
+  saveMessages(session, messages);
+  writeStore(data);
 }
 
 export async function setMessages(sessionId: string, messages: ChatMessage[]): Promise<void> {
-  const store = await getStore();
-  const session = store.get(`sessions.${sessionId}`) as { meta: SessionMeta } | undefined;
-  if (!session) return;
+  const data = readStore();
+  const session = data.sessions[sessionId];
+  if (!session) {
+    console.warn('[ChatStore] Session not found for setMessages:', sessionId);
+    return;
+  }
   session.meta.lastMessageAt = Date.now();
-
-  // 加密存储
-  store.set(`sessions.${sessionId}.messages_encrypted`, encryptStoreValue(messages));
-  store.set(`sessions.${sessionId}.meta`, session.meta);
+  saveMessages(session, messages);
+  writeStore(data);
 }
 
 export async function clearCurrentSession(): Promise<void> {
-  const store = await getStore();
-  const sessionId = store.get('currentSessionId') as string;
-  setMessages(sessionId, []);
+  const data = readStore();
+  const session = data.sessions[data.currentSessionId];
+  if (session) {
+    saveMessages(session, []);
+    writeStore(data);
+  }
 }
 
 export async function hasMessages(sessionId: string): Promise<boolean> {
-  const store = await getStore();
-  const session = store.get(`sessions.${sessionId}`) as { messages: ChatMessage[] } | undefined;
-  return session ? session.messages.length > 0 : false;
+  const data = readStore();
+  const session = data.sessions[sessionId];
+  return session ? getMessageCount(session) > 0 : false;
+}
+
+// ═══════════════════════════════════════════
+// Types
+// ═══════════════════════════════════════════
+
+export interface SessionInfo {
+  id: string;
+  title: string;
+  createdAt: number;
+  lastMessageAt: number;
+  messageCount: number;
 }

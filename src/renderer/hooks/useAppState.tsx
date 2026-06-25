@@ -134,8 +134,8 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
       setIsLoading(false);
     };
 
-    window.electronAPI?.onLLMChunk(handleChunk);
-    window.electronAPI?.onLLMDone(handleDone);
+    const unsubChunk = window.electronAPI?.onLLMChunk(handleChunk);
+    const unsubDone = window.electronAPI?.onLLMDone(handleDone);
 
     // 监听音频转录
     const handleTranscriptionInterim = (text: string) => {
@@ -158,13 +158,18 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
       }
     };
 
-    window.electronAPI?.onTranscriptionInterim(handleTranscriptionInterim);
-    window.electronAPI?.onTranscriptionUpdate(handleTranscriptionUpdate);
-    window.electronAPI?.onTranscriptionFull(handleTranscriptionFull);
-    window.electronAPI?.onASRStateChange(handleASRStateChange);
+    const unsubInterim = window.electronAPI?.onTranscriptionInterim(handleTranscriptionInterim);
+    const unsubUpdate = window.electronAPI?.onTranscriptionUpdate(handleTranscriptionUpdate);
+    const unsubFull = window.electronAPI?.onTranscriptionFull(handleTranscriptionFull);
+    const unsubASR = window.electronAPI?.onASRStateChange(handleASRStateChange);
 
     return () => {
-      // cleanup handled by onLLMChunk returning unsubscribe
+      unsubChunk?.();
+      unsubDone?.();
+      unsubInterim?.();
+      unsubUpdate?.();
+      unsubFull?.();
+      unsubASR?.();
     };
   }, []);
 

@@ -51,7 +51,14 @@ function createOverlayWindow() {
   const isDev = !app.isPackaged;
   if (isDev) {
     // 尝试连接 Vite 开发服务器
-    overlayWindow.loadURL('http://localhost:5173').catch(() => {
+    const http = require('http');
+    http.get('http://localhost:5173', (res: any) => {
+      if (res.statusCode === 200) {
+        overlayWindow?.loadURL('http://localhost:5173');
+      } else {
+        overlayWindow?.loadFile(path.join(__dirname, '..', 'dist', 'renderer', 'index.html'));
+      }
+    }).on('error', () => {
       console.warn('[Main] Vite dev server not running, falling back to built files');
       overlayWindow?.loadFile(path.join(__dirname, '..', 'dist', 'renderer', 'index.html'));
     });

@@ -225,8 +225,8 @@ body {
 }
 
 .chat-panel.expanded {
-  height: 430px;
-  max-height: 430px;
+  height: 400px;
+  max-height: 400px;
   opacity: 1;
   transform: translateY(0) scale(1);
 }
@@ -314,7 +314,6 @@ body {
 
 /* 会话下拉 */
 .session-dropdown {
-  display: none;
   position: absolute;
   top: calc(100% + 4px);
   left: 0;
@@ -339,8 +338,6 @@ body {
   background: rgba(255, 255, 255, 0.08);
   border-radius: 2px;
 }
-
-.session-dropdown.open { display: block; }
 
 .session-dropdown-item {
   display: flex;
@@ -444,13 +441,44 @@ body {
 .panel-controls {
   display: flex;
   align-items: center;
-  gap: 6px;
+  gap: 8px;
   flex-shrink: 0;
 }
 
 .panel-count {
   font-size: 11px;
   color: rgba(255, 255, 255, 0.2);
+}
+
+/* 新建会话图标按钮 */
+.new-session-icon-btn {
+  -webkit-app-region: no-drag;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 28px;
+  height: 28px;
+  border-radius: 8px;
+  border: 1px solid rgba(255, 255, 255, 0.10);
+  background: rgba(255, 255, 255, 0.06);
+  color: rgba(255, 255, 255, 0.5);
+  cursor: pointer;
+  transition: background 0.15s, border-color 0.15s, color 0.15s;
+  outline: none;
+  flex-shrink: 0;
+}
+
+.new-session-icon-btn:hover {
+  background: rgba(99, 102, 241, 0.15);
+  border-color: rgba(99, 102, 241, 0.3);
+  color: rgba(255, 255, 255, 0.85);
+}
+
+.new-session-icon-btn:active { opacity: 0.7; }
+
+.new-session-icon-btn svg {
+  width: 14px;
+  height: 14px;
 }
 
 /* 消息区域 */
@@ -756,7 +784,7 @@ body {
   outline: none;
   font-family: inherit;
   resize: none;
-  min-height: 60px;
+  min-height: 40px;
 }
 
 .chat-input:disabled {
@@ -909,7 +937,6 @@ body {
 
 /* 模型下拉菜单 */
 .model-dropdown {
-  display: none;
   position: absolute;
   bottom: calc(100% + 8px);
   right: 0;
@@ -924,8 +951,6 @@ body {
   padding: 4px;
   animation: dropdownIn 0.15s ease-out;
 }
-
-.model-dropdown.open { display: block; }
 
 @keyframes dropdownIn {
   from { opacity: 0; transform: translateY(4px); }
