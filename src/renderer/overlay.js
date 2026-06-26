@@ -616,7 +616,12 @@ async function sendMessage() {
 
   try {
     const result = await window.electronAPI.llm.chatStream(sessionId, text);
-    if (!result.success) {
+    if (result.success) {
+      // 初始化流式消息，等待 onLLMChunk 事件
+      const msg = addMessage('assistant', '');
+      msg.isStreaming = true;
+      streamingMessageId = msg.id;
+    } else {
       console.warn('[Chat] Stream failed, falling back to non-stream. Error:', result.error);
       const fallbackResult = await window.electronAPI.llm.chat(sessionId, text);
       if (fallbackResult.success) {
@@ -644,7 +649,12 @@ async function sendTranscription(text) {
 
   try {
     const result = await window.electronAPI.llm.chatStream(sessionId, text);
-    if (!result.success) {
+    if (result.success) {
+      // 初始化流式消息，等待 onLLMChunk 事件
+      const msg = addMessage('assistant', '');
+      msg.isStreaming = true;
+      streamingMessageId = msg.id;
+    } else {
       const fallbackResult = await window.electronAPI.llm.chat(sessionId, text);
       if (fallbackResult.success) {
         addMessage('assistant', fallbackResult.data);
