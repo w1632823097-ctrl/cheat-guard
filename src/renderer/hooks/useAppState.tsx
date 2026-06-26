@@ -53,11 +53,17 @@ interface AppState {
   isModelDropdownOpen: boolean;
   setIsModelDropdownOpen: (v: boolean) => void;
   
-  // 录音
+  // 录音（自己说话 → 自动发送 LLM）
   isRecording: boolean;
   setIsRecording: (v: boolean) => void;
   currentTranscription: string;
   setCurrentTranscription: (text: string) => void;
+  
+  // 倾听模式（监听对方说话 → 显示转录，手动触发回复）
+  isListening: boolean;
+  setIsListening: (v: boolean) => void;
+  otherPartyTranscript: string;
+  setOtherPartyTranscript: (text: string) => void;
   
   // 流式消息
   streamingMessageId: string | null;
@@ -83,6 +89,8 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
   const [isModelDropdownOpen, setIsModelDropdownOpen] = useState(false);
   const [isRecording, setIsRecording] = useState(false);
   const [currentTranscription, setCurrentTranscription] = useState('');
+  const [isListening, setIsListening] = useState(false);
+  const [otherPartyTranscript, setOtherPartyTranscript] = useState('');
   const [streamingMessageId, setStreamingMessageId] = useState<string | null>(null);
   const [isDragging, setIsDragging] = useState(false);
 
@@ -202,6 +210,10 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
         setIsRecording,
         currentTranscription,
         setCurrentTranscription,
+        isListening,
+        setIsListening,
+        otherPartyTranscript,
+        setOtherPartyTranscript,
         streamingMessageId,
         setStreamingMessageId,
         isDragging,

@@ -135,6 +135,134 @@ body {
 .record-btn:hover svg { color: rgba(239, 100, 100, 0.8); }
 .record-btn.recording svg { color: #f87171; }
 
+/* 倾听对方按钮 */
+.listen-btn {
+  -webkit-app-region: no-drag;
+  width: 30px;
+  height: 30px;
+  border-radius: 8px;
+  border: 1px solid rgba(255, 255, 255, 0.08);
+  background: rgba(255, 255, 255, 0.04);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  cursor: pointer;
+  transition: background 0.15s, border-color 0.15s;
+  flex-shrink: 0;
+  outline: none;
+}
+
+.listen-btn:hover {
+  background: rgba(99, 102, 241, 0.12);
+  border-color: rgba(99, 102, 241, 0.25);
+}
+
+.listen-btn.listening {
+  background: rgba(99, 102, 241, 0.18);
+  border-color: rgba(99, 102, 241, 0.45);
+  animation: listeningPulse 1.5s ease-in-out infinite;
+}
+
+@keyframes listeningPulse {
+  0%, 100% { box-shadow: none; }
+  50%       { box-shadow: 0 0 0 4px rgba(99, 102, 241, 0.1); }
+}
+
+.listen-btn svg { width: 14px; height: 14px; color: rgba(255, 255, 255, 0.45); }
+.listen-btn:hover svg { color: rgba(99, 102, 241, 0.8); }
+.listen-btn.listening svg { color: #818cf8; }
+
+/* 倾听结果卡片 */
+.listen-result-card {
+  margin: 0 0 8px;
+  padding: 10px 12px;
+  background: rgba(99, 102, 241, 0.06);
+  border: 1px solid rgba(99, 102, 241, 0.15);
+  border-radius: 10px;
+  animation: msgIn 0.3s ease-out;
+}
+
+.listen-result-header {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  margin-bottom: 6px;
+  font-size: 11px;
+  font-weight: 600;
+  color: rgba(129, 140, 248, 0.85);
+}
+
+.listen-result-header svg {
+  flex-shrink: 0;
+  color: rgba(129, 140, 248, 0.7);
+}
+
+.listen-result-text {
+  font-size: 12.5px;
+  line-height: 1.65;
+  color: rgba(255, 255, 255, 0.7);
+  margin-bottom: 8px;
+  max-height: 100px;
+  overflow-y: auto;
+}
+
+.listen-result-actions {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  justify-content: flex-end;
+}
+
+.listen-dismiss-btn {
+  padding: 4px 10px;
+  border-radius: 6px;
+  border: 1px solid rgba(255, 255, 255, 0.08);
+  background: transparent;
+  color: rgba(255, 255, 255, 0.3);
+  font-size: 11px;
+  cursor: pointer;
+  transition: color 0.15s, border-color 0.15s;
+  font-family: inherit;
+  outline: none;
+}
+
+.listen-dismiss-btn:hover {
+  color: rgba(255, 255, 255, 0.6);
+  border-color: rgba(255, 255, 255, 0.15);
+}
+
+.listen-reply-btn {
+  display: flex;
+  align-items: center;
+  gap: 5px;
+  padding: 4px 10px;
+  border-radius: 6px;
+  border: 1px solid rgba(99, 102, 241, 0.3);
+  background: rgba(99, 102, 241, 0.12);
+  color: rgba(167, 139, 250, 0.9);
+  font-size: 11px;
+  font-weight: 600;
+  cursor: pointer;
+  transition: background 0.15s, border-color 0.15s;
+  font-family: inherit;
+  outline: none;
+}
+
+.listen-reply-btn:hover {
+  background: rgba(99, 102, 241, 0.2);
+  border-color: rgba(99, 102, 241, 0.45);
+}
+
+.listen-reply-btn svg {
+  flex-shrink: 0;
+}
+
+.listen-reply-btn:disabled,
+.listen-dismiss-btn:disabled {
+  opacity: 0.4;
+  cursor: not-allowed;
+}
+
 /* 关闭按钮 */
 .close-btn {
   -webkit-app-region: no-drag;
@@ -813,6 +941,21 @@ body {
 }
 
 .chat-input::placeholder { color: rgba(255, 255, 255, 0.2); }
+
+/* 输入框滚动条 - 暗色主题细窄样式 */
+.chat-input::-webkit-scrollbar {
+  width: 4px;
+}
+.chat-input::-webkit-scrollbar-track {
+  background: transparent;
+}
+.chat-input::-webkit-scrollbar-thumb {
+  background: rgba(255, 255, 255, 0.12);
+  border-radius: 2px;
+}
+.chat-input::-webkit-scrollbar-thumb:hover {
+  background: rgba(255, 255, 255, 0.25);
+}
 
 /* 输入区底部行：全部右对齐 */
 .chat-input-buttons {
