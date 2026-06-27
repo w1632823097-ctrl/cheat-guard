@@ -580,6 +580,11 @@ body {
   color: rgba(255, 255, 255, 0.2);
 }
 
+.panel-count.warning {
+  color: #f87171;
+  font-weight: 600;
+}
+
 /* 新建会话图标按钮 */
 .new-session-icon-btn {
   -webkit-app-region: no-drag;
@@ -797,6 +802,106 @@ body {
 .message-row.assistant:hover .msg-copy-btn { opacity: 1; }
 .msg-copy-btn:hover  { color: rgba(255, 255, 255, 0.45); }
 .msg-copy-btn.copied { color: #34d399; opacity: 1; }
+
+/* 消息操作按钮组 */
+.msg-actions {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  margin-top: 4px;
+  opacity: 0;
+  transition: opacity 0.15s ease;
+}
+
+.message-row:hover .msg-actions {
+  opacity: 1;
+}
+
+.msg-action-btn {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 22px;
+  height: 22px;
+  background: none;
+  border: none;
+  border-radius: 4px;
+  color: rgba(255, 255, 255, 0.25);
+  cursor: pointer;
+  transition: color 0.15s, background 0.15s;
+  padding: 0;
+  outline: none;
+}
+
+.msg-action-btn:hover {
+  color: rgba(255, 255, 255, 0.6);
+  background: rgba(255, 255, 255, 0.06);
+}
+
+/* 消息编辑 */
+.msg-edit-wrapper {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  width: 100%;
+}
+
+.msg-edit-textarea {
+  width: 100%;
+  min-height: 60px;
+  padding: 8px 12px;
+  border-radius: 11px;
+  border: 1px solid rgba(255, 255, 255, 0.15);
+  background: rgba(255, 255, 255, 0.06);
+  color: rgba(255, 255, 255, 0.92);
+  font-size: 13px;
+  line-height: 1.6;
+  font-family: inherit;
+  outline: none;
+  resize: vertical;
+}
+
+.msg-edit-textarea:focus {
+  border-color: rgba(255, 255, 255, 0.25);
+  background: rgba(255, 255, 255, 0.08);
+}
+
+.msg-edit-actions {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  justify-content: flex-end;
+}
+
+.msg-edit-btn {
+  padding: 5px 12px;
+  border-radius: 6px;
+  border: 1px solid rgba(255, 255, 255, 0.08);
+  background: transparent;
+  color: rgba(255, 255, 255, 0.5);
+  font-size: 12px;
+  cursor: pointer;
+  transition: background 0.15s, border-color 0.15s, color 0.15s;
+  font-family: inherit;
+  outline: none;
+}
+
+.msg-edit-btn:hover {
+  background: rgba(255, 255, 255, 0.06);
+  color: rgba(255, 255, 255, 0.8);
+}
+
+.msg-edit-btn.save {
+  background: rgba(99, 102, 241, 0.15);
+  border-color: rgba(99, 102, 241, 0.3);
+  color: rgba(167, 139, 250, 0.9);
+}
+
+.msg-edit-btn.save:hover {
+  background: rgba(99, 102, 241, 0.25);
+  border-color: rgba(99, 102, 241, 0.45);
+  color: rgba(255, 255, 255, 0.95);
+}
 
 /* 转录区域 */
 .transcription-area {
@@ -1307,6 +1412,132 @@ body {
   font-size: 12px;
   color: rgba(255, 255, 255, 0.55);
   line-height: 1.5;
+}
+
+/* ============================================================
+   表格
+   ============================================================ */
+.md-table {
+  width: 100%;
+  border-collapse: collapse;
+  margin: 8px 0;
+  font-size: 12px;
+  line-height: 1.5;
+  border-radius: 8px;
+  overflow: hidden;
+  border: 1px solid rgba(255, 255, 255, 0.06);
+}
+
+.md-table thead {
+  background: rgba(255, 255, 255, 0.04);
+}
+
+.md-table th {
+  padding: 8px 12px;
+  text-align: left;
+  font-weight: 600;
+  color: rgba(255, 255, 255, 0.8);
+  border-bottom: 1px solid rgba(255, 255, 255, 0.08);
+  white-space: nowrap;
+}
+
+.md-table td {
+  padding: 7px 12px;
+  color: rgba(255, 255, 255, 0.65);
+  border-bottom: 1px solid rgba(255, 255, 255, 0.04);
+  word-break: break-word;
+}
+
+.md-table tbody tr:last-child td {
+  border-bottom: none;
+}
+
+.md-table tbody tr:hover {
+  background: rgba(255, 255, 255, 0.02);
+}
+
+/* ============================================================
+   Toast 通知
+   ============================================================ */
+.toast-container {
+  position: fixed;
+  top: 16px;
+  left: 50%;
+  transform: translateX(-50%);
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  z-index: 1000;
+  pointer-events: none;
+}
+
+.toast {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 10px 16px;
+  border-radius: 10px;
+  font-size: 12.5px;
+  font-weight: 500;
+  line-height: 1.4;
+  max-width: 320px;
+  animation: toastIn 0.3s cubic-bezier(0.22, 1, 0.36, 1), toastOut 0.3s ease-in 2.7s forwards;
+  backdrop-filter: blur(20px);
+  -webkit-backdrop-filter: blur(20px);
+  box-shadow: 0 4px 24px rgba(0, 0, 0, 0.4), 0 1px 0 rgba(255,255,255,0.04) inset;
+  pointer-events: auto;
+}
+
+@keyframes toastIn {
+  from { opacity: 0; transform: translateY(-10px) scale(0.95); }
+  to   { opacity: 1; transform: translateY(0) scale(1); }
+}
+
+@keyframes toastOut {
+  from { opacity: 1; transform: translateY(0) scale(1); }
+  to   { opacity: 0; transform: translateY(-10px) scale(0.95); }
+}
+
+.toast-error {
+  background: rgba(239, 68, 68, 0.15);
+  border: 1px solid rgba(239, 68, 68, 0.25);
+  color: rgba(252, 165, 165, 0.95);
+}
+
+.toast-warning {
+  background: rgba(245, 158, 11, 0.15);
+  border: 1px solid rgba(245, 158, 11, 0.25);
+  color: rgba(252, 211, 77, 0.95);
+}
+
+.toast-info {
+  background: rgba(59, 130, 246, 0.15);
+  border: 1px solid rgba(59, 130, 246, 0.25);
+  color: rgba(147, 197, 253, 0.95);
+}
+
+/* ============================================================
+   离线提示横幅
+   ============================================================ */
+.offline-banner {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 6px;
+  padding: 6px 12px;
+  margin: 0 12px 8px;
+  background: rgba(245, 158, 11, 0.1);
+  border: 1px solid rgba(245, 158, 11, 0.2);
+  border-radius: 8px;
+  font-size: 12px;
+  font-weight: 500;
+  color: rgba(252, 211, 77, 0.9);
+  animation: msgIn 0.3s ease-out;
+}
+
+.offline-banner svg {
+  flex-shrink: 0;
+  opacity: 0.8;
 }
 
 /* ============================================================

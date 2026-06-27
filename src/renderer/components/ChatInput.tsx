@@ -35,6 +35,51 @@ export default function ChatInput() {
   // 保持 ref 与 state 同步
   isRecordingRef.current = isRecording;
 
+  // 延迟辅助函数
+  const delay = (ms: number) => new Promise((resolve) => setTimeout(resolve, ms));
+
+  // 显示 toast 通知
+  const showToast = useCallback((message: string, type: 'error' | 'warning' | 'info' = 'error') => {
+    if (typeof (window as any).__chatPanelShowToast === 'function') {
+      (window as any).__chatPanelShowToast(message, type);
+    }
+  }, []);
+
+  // 带重试的 LLM 请求
+  const sendLLMRequest = useCallback(async (text: string, maxRetries: number = 3): Promise<{ success: boolean; data?: string; error?: string }> => {
+    let lastError: string | undefined;
+    for (let attempt = 0; attempt <= maxRetries; attempt++) {
+      try {
+        if (!window.electronAPI?.llm?.chatStream) {
+          return { success: false, error: 'LLM 服务未就绪' };
+        }
+        const result = await window.electronAPI.llm.chatStream(currentSessionId, text);
+        if (result.success) {
+          return { success: true };
+        }
+        // 流式失败，尝试非流式 fallback
+        if (window.electronAPI?.llm?.chat) {
+          const fallback = await window.electronAPI.llm.chat(currentSessionId, text);
+          if (fallback.success) {
+            return { success: true, data: fallback.data as string };
+          }
+          lastError = fallback.error as string || '未知错误';
+        } else {
+          lastError = result.error as string || '未知错误';
+        }
+      } catch (err) {
+        lastError = err instanceof Error ? err.message : '网络错误';
+      }
+
+      // 如果不是最后一次尝试，等待后重试
+      if (attempt < maxRetries) {
+        showToast(`请求失败，${2}秒后重试 (${attempt + 1}/${maxRetries})`, 'warning');
+        await delay(2000);
+      }
+    }
+    return { success: false, error: lastError || '请求失败' };
+  }, [currentSessionId, showToast]);
+
   const handleSend = useCallback(async () => {
     const text = inputText.trim();
     if (!text || isLoading) return;
@@ -49,60 +94,30 @@ export default function ChatInput() {
     setIsLoading(true);
 
     try {
-      if (window.electronAPI?.llm?.chatStream) {
-        // 流式响应：useAppState 中的 onLLMChunk 会自动处理
-        // 不需要在这里添加空的 assistant 消息
-        const result = await window.electronAPI.llm.chatStream(currentSessionId, text);
-        if (!result.success) {
-          // 流式失败，使用非流式 fallback
-          const fallback = await window.electronAPI.llm.chat(currentSessionId, text);
-          if (fallback.success) {
-            // 添加 fallback 消息
-            addMessage({
-              id: Date.now().toString() + '_ai',
-              role: 'assistant',
-              text: fallback.data || '',
-              timestamp: new Date(),
-            });
-          } else {
-            // 添加错误消息
-            addMessage({
-              id: Date.now().toString() + '_err',
-              role: 'assistant',
-              text: '请求失败: ' + (fallback.error || '未知错误'),
-              isError: true,
-              timestamp: new Date(),
-            });
-          }
-          setIsLoading(false);
-        }
-      } else {
-        addMessage({
-          id: Date.now().toString() + '_err',
-          role: 'assistant',
-          text: 'LLM 服务未就绪',
-          isError: true,
-          timestamp: new Date(),
-        });
+      const result = await sendLLMRequest(text);
+      if (!result.success) {
+        // 使用 toast 替代聊天中的错误消息
+        showToast('请求失败: ' + (result.error || '未知错误'), 'error');
         setIsLoading(false);
       }
     } catch (err) {
       console.error('[Chat] Send error:', err);
-      addMessage({
-        id: Date.now().toString() + '_err',
-        role: 'assistant',
-        text: '请求失败: ' + (err instanceof Error ? err.message : '网络错误'),
-        isError: true,
-        timestamp: new Date(),
-      });
+      showToast('请求失败: ' + (err instanceof Error ? err.message : '网络错误'), 'error');
       setIsLoading(false);
     }
-  }, [inputText, isLoading, currentSessionId, addMessage, setIsLoading]);
+  }, [inputText, isLoading, addMessage, setIsLoading, sendLLMRequest, showToast]);
 
   const handleKeyDown = (e: React.KeyboardEvent) => {
     if (e.key === 'Enter' && !e.shiftKey) {
       e.preventDefault();
       handleSend();
+    }
+
+    // Esc: 清空输入框内容
+    if (e.key === 'Escape') {
+      e.preventDefault();
+      e.stopPropagation();
+      setInputText('');
     }
   };
 

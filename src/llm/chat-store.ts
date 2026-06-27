@@ -26,7 +26,7 @@ interface StoreData {
   sessions: Record<string, SessionData>;
 }
 
-const DEFAULT_SESSION_TITLE = '新对话';
+const DEFAULT_SESSION_TITLE = 'History';
 
 /** 获取存储文件路径 */
 function getStorePath(): string {

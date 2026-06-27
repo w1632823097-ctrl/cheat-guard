@@ -36,6 +36,8 @@ interface AppState {
   addMessage: (msg: Message) => void;
   updateLastMessage: (text: string) => void;
   clearMessages: () => void;
+  editMessage: (id: string, text: string) => void;
+  regenerateMessage: (id: string) => void;
   
   // 会话
   sessions: Session[];
@@ -72,6 +74,14 @@ interface AppState {
   // 拖拽
   isDragging: boolean;
   setIsDragging: (v: boolean) => void;
+
+  // 主题
+  theme: 'dark' | 'light';
+  setTheme: (v: 'dark' | 'light') => void;
+
+  // 字体大小
+  fontSize: 'small' | 'medium' | 'large';
+  setFontSize: (v: 'small' | 'medium' | 'large') => void;
 }
 
 const AppContext = createContext<AppState | null>(null);
@@ -94,6 +104,61 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
   const [streamingMessageId, setStreamingMessageId] = useState<string | null>(null);
   const [isDragging, setIsDragging] = useState(false);
 
+  // 从 localStorage 读取主题和字体大小偏好
+  const [theme, setThemeState] = useState<'dark' | 'light'>(() => {
+    try {
+      const saved = localStorage.getItem('cheat-guard-theme');
+      return saved === 'light' ? 'light' : 'dark';
+    } catch {
+      return 'dark';
+    }
+  });
+
+  const [fontSize, setFontSizeState] = useState<'small' | 'medium' | 'large'>(() => {
+    try {
+      const saved = localStorage.getItem('cheat-guard-font-size');
+      if (saved === 'small' || saved === 'large') return saved;
+      return 'medium';
+    } catch {
+      return 'medium';
+    }
+  });
+
+  // 主题切换时更新 body class 和 localStorage
+  const setTheme = useCallback((v: 'dark' | 'light') => {
+    setThemeState(v);
+    try {
+      localStorage.setItem('cheat-guard-theme', v);
+      if (v === 'light') {
+        document.body.classList.add('light-theme');
+      } else {
+        document.body.classList.remove('light-theme');
+      }
+    } catch {
+      // ignore
+    }
+  }, []);
+
+  // 字体大小切换时更新 body class 和 localStorage
+  const setFontSize = useCallback((v: 'small' | 'medium' | 'large') => {
+    setFontSizeState(v);
+    try {
+      localStorage.setItem('cheat-guard-font-size', v);
+      document.body.classList.remove('font-small', 'font-medium', 'font-large');
+      document.body.classList.add(`font-${v}`);
+    } catch {
+      // ignore
+    }
+  }, []);
+
+  // 初始化时应用保存的主题和字体大小
+  useEffect(() => {
+    if (theme === 'light') {
+      document.body.classList.add('light-theme');
+    }
+    document.body.classList.add(`font-${fontSize}`);
+  }, []);
+
   const addMessage = useCallback((msg: Message) => {
     setMessages((prev) => [...prev, msg]);
   }, []);
@@ -112,6 +177,20 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
 
   const clearMessages = useCallback(() => {
     setMessages([]);
+  }, []);
+
+  const editMessage = useCallback((id: string, text: string) => {
+    setMessages((prev) =>
+      prev.map((msg) => (msg.id === id ? { ...msg, text } : msg))
+    );
+  }, []);
+
+  const regenerateMessage = useCallback((id: string) => {
+    setMessages((prev) => {
+      const index = prev.findIndex((msg) => msg.id === id);
+      if (index === -1) return prev;
+      return prev.slice(0, index + 1);
+    });
   }, []);
 
   // 监听 LLM 流式响应
@@ -194,6 +273,8 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
         addMessage,
         updateLastMessage,
         clearMessages,
+        editMessage,
+        regenerateMessage,
         sessions,
         setSessions,
         currentSessionId,
@@ -218,6 +299,10 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
         setStreamingMessageId,
         isDragging,
         setIsDragging,
+        theme,
+        setTheme,
+        fontSize,
+        setFontSize,
       }}
     >
       {children}

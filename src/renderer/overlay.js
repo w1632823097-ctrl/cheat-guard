@@ -359,8 +359,10 @@ async function loadSessions() {
 }
 
 function updateSessionUI() {
-  const current = sessions.find(s => s.id === sessionId) || { title: '新对话' };
-  if (sessionBtnLabel) sessionBtnLabel.textContent = current.title;
+  const current = sessions.find(s => s.id === sessionId);
+  if (sessionBtnLabel) {
+    sessionBtnLabel.textContent = current ? current.title : 'History';
+  }
 }
 
 function buildSessionDropdown() {
