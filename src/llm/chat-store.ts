@@ -240,8 +240,17 @@ export async function addMessage(sessionId: string, message: ChatMessage): Promi
   }
 
   const messages = loadMessages(session);
+  // 检查当前标题是否为默认标题（需自动命名）
+  const needsAutoTitle = session.meta.title === DEFAULT_SESSION_TITLE;
   messages.push(message);
   session.meta.lastMessageAt = Date.now();
+
+  // 自动命名：标题为默认值且第一条用户消息到达时，取前20个字
+  if (needsAutoTitle && message.role === 'user' && message.content) {
+    const text = message.content.trim();
+    session.meta.title = text.length > 20 ? text.slice(0, 20) + '...' : text;
+  }
+
   saveMessages(session, messages);
   writeStore(data);
 }
