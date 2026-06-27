@@ -12,8 +12,6 @@ export default function ChatInput() {
     setIsRecording,
     currentTranscription,
     setCurrentTranscription,
-    isListening,
-    setIsListening,
     availableModels,
     setAvailableModels,
     currentModelId,
@@ -34,8 +32,8 @@ export default function ChatInput() {
   const sourceNodeRef = useRef<MediaStreamAudioSourceNode | null>(null);
   const isRecordingRef = useRef(false);
 
-  // 保持 ref 与 state 同步（两种模式都会用到麦克风）
-  isRecordingRef.current = isRecording || isListening;
+  // 保持 ref 与 state 同步
+  isRecordingRef.current = isRecording;
 
   const handleSend = useCallback(async () => {
     const text = inputText.trim();
@@ -198,76 +196,18 @@ export default function ChatInput() {
       const ok = await startAudioCapture();
       if (!ok) { setIsRecording(false); isRecordingRef.current = false; }
     } else {
-      // 停止录音 → 获取转录 → 自动发送 LLM
+      // 停止录音 → 获取转录 → 填入输入框
       isRecordingRef.current = false;
       setIsRecording(false);
       const transcript = await stopAudioAndGetTranscript();
       cleanupAudio();
-      console.log('[Audio] Dictation stopped');
+      console.log('[Audio] Dictation stopped, transcript:', transcript);
 
       if (transcript) {
-        setCurrentTranscription('');
-        addMessage({
-          id: Date.now().toString(),
-          role: 'user',
-          text: transcript,
-          timestamp: new Date(),
-        });
-        setIsLoading(true);
-        try {
-          if (window.electronAPI?.llm?.chatStream) {
-            const chatResult = await window.electronAPI.llm.chatStream(currentSessionId, transcript);
-            if (!chatResult.success) {
-              const fallbackResult = await window.electronAPI.llm.chat(currentSessionId, transcript);
-              addMessage({
-                id: Date.now().toString() + '_' + (fallbackResult.success ? 'ai' : 'err'),
-                role: 'assistant',
-                text: fallbackResult.success ? (fallbackResult.data || '') : ('请求失败: ' + (fallbackResult.error || '未知错误')),
-                isError: !fallbackResult.success,
-                timestamp: new Date(),
-              });
-              setIsLoading(false);
-            }
-          } else {
-            addMessage({
-              id: Date.now().toString() + '_err',
-              role: 'assistant',
-              text: 'LLM 服务未就绪',
-              isError: true,
-              timestamp: new Date(),
-            });
-            setIsLoading(false);
-          }
-        } catch (err) {
-          console.error('[Chat] Dictation send error:', err);
-          setIsLoading(false);
-        }
-      }
-    }
-  }, [isRecording, currentSessionId, addMessage, setIsLoading, setCurrentTranscription, log, startAudioCapture, stopAudioAndGetTranscript, cleanupAudio]);
-
-  // ============ 倾听（对方说话 → 转录填入输入框，让你自己改）============
-
-  const toggleListening = useCallback(async () => {
-    if (!isListening) {
-      isRecordingRef.current = true;
-      setIsListening(true);
-      log('Toggle: start listening mode');
-      const ok = await startAudioCapture();
-      if (!ok) { setIsListening(false); isRecordingRef.current = false; }
-    } else {
-      isRecordingRef.current = false;
-      setIsListening(false);
-      const transcript = await stopAudioAndGetTranscript();
-      cleanupAudio();
-      console.log('[Audio] Listening stopped, transcript:', transcript);
-
-      if (transcript) {
-        // 直接填入输入框，你可以自己改
         setInputText(prev => prev ? prev + '\n' + transcript : transcript);
       }
     }
-  }, [isListening, log, startAudioCapture, stopAudioAndGetTranscript, cleanupAudio, setIsListening]);
+  }, [isRecording, setCurrentTranscription, log, startAudioCapture, stopAudioAndGetTranscript, cleanupAudio, setInputText]);
 
   // 加载模型列表
   useEffect(() => {
@@ -325,13 +265,16 @@ export default function ChatInput() {
         const result = await window.electronAPI.ocr.screenshot();
         console.log('[OCR] Screenshot result:', result);
 
-        if (result && result.success && result.text) {
-          addMessage({
-            id: Date.now().toString(),
-            role: 'user',
-            text: '[截图识别] ' + result.text.substring(0, 200) + (result.text.length > 200 ? '...' : ''),
-            timestamp: new Date(),
-          });
+        if (result && result.success) {
+          if (result.text) {
+            addMessage({
+              id: Date.now().toString(),
+              role: 'user',
+              text: '[截图识别] ' + result.text.substring(0, 200) + (result.text.length > 200 ? '...' : ''),
+              timestamp: new Date(),
+            });
+          }
+          // 如果 text 为空，说明用户取消了选区，不显示任何消息
         } else {
           addMessage({
             id: Date.now().toString(),
@@ -360,11 +303,11 @@ export default function ChatInput() {
         ref={chatInputRef}
         id="chatTextarea"
         className="chat-input"
-        placeholder={isRecording ? '正在录音...' : isListening ? '正在倾听对方...' : '输入问题...'}
+        placeholder={isRecording ? '正在录音...' : '输入问题...'}
         value={inputText}
         onChange={(e) => setInputText(e.target.value)}
         onKeyDown={handleKeyDown}
-        disabled={isLoading || isRecording || isListening}
+        disabled={isLoading || isRecording}
       />
       <div className="chat-input-buttons">
         <div className="chat-input-actions">
@@ -412,7 +355,7 @@ export default function ChatInput() {
             className={`screenshot-btn ${isScreenshotLoading ? 'loading' : ''}`}
             onClick={handleScreenshot}
             title="截图识别"
-            disabled={isRecording || isListening}
+            disabled={isRecording}
           >
             <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
               <rect x="3" y="3" width="18" height="18" rx="2" ry="2" />
@@ -420,25 +363,11 @@ export default function ChatInput() {
               <polyline points="21 15 16 10 5 21" />
             </svg>
           </button>
-          {/* 倾听对方按钮 */}
-          <button
-            id="listenBtn"
-            className={`listen-btn ${isListening ? 'listening' : ''}`}
-            onClick={toggleListening}
-            disabled={isRecording}
-            title={isListening ? '停止倾听' : '倾听对方说话'}
-          >
-            <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
-              <path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"/>
-              <circle cx="12" cy="12" r="3"/>
-            </svg>
-          </button>
-          {/* 自己录音按钮 */}
+          {/* 录音按钮 */}
           <button
             id="recordBtn"
             className={`record-btn ${isRecording ? 'recording' : ''}`}
             onClick={toggleRecording}
-            disabled={isListening}
             title={isRecording ? '停止录音' : '开始录音'}
           >
             <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
@@ -452,7 +381,7 @@ export default function ChatInput() {
             id="sendBtn"
             className="send-btn"
             onClick={handleSend}
-            disabled={isLoading || !inputText.trim() || isRecording || isListening}
+            disabled={isLoading || !inputText.trim() || isRecording}
           >
             <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
               <line x1="22" y1="2" x2="11" y2="13" />
