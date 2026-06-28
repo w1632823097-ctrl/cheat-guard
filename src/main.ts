@@ -1,6 +1,6 @@
 import { app, BrowserWindow, globalShortcut, ipcMain, desktopCapturer, session } from 'electron';
 import * as path from 'path';
-import { chat, chatStream, clearSession, setApiConfig, getHistory, getAvailableModels, setModel, listSessions, newSession, deleteSession, renameSession } from './llm/llm-service';
+import { chat, chatStream, clearSession, setApiConfig, getHistory, getAvailableModels, setModel, addModel, testModel, listSessions, newSession, deleteSession, renameSession } from './llm/llm-service';
 import { setWindowInvisible, setNoActivateStyle, isWDAvailable } from './native/wda-wrapper';
 import { recognizeText, cleanupTempFiles, saveTempImage } from './ocr/ocr-service';
 import { startLogCleanupTimer } from './utils/security';
@@ -579,6 +579,24 @@ ipcMain.handle('llm:set-model', async (_event, modelId: string): Promise<IPCResp
   try {
     setModel(modelId);
     return { success: true };
+  } catch (err) {
+    return { success: false, error: getErrorMessage(err) };
+  }
+});
+
+ipcMain.handle('llm:add-model', async (_event, modelInfo: { id: string; name: string; baseURL: string; apiKey?: string }): Promise<IPCResponse<void>> => {
+  try {
+    const result = addModel(modelInfo);
+    return result;
+  } catch (err) {
+    return { success: false, error: getErrorMessage(err) };
+  }
+});
+
+ipcMain.handle('llm:test-model', async (_event, modelInfo: { id: string; baseURL: string; apiKey: string }): Promise<IPCResponse<void>> => {
+  try {
+    const result = await testModel(modelInfo);
+    return result;
   } catch (err) {
     return { success: false, error: getErrorMessage(err) };
   }

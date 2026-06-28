@@ -68,6 +68,10 @@ contextBridge.exposeInMainWorld('electronAPI', {
       ipcRenderer.invoke('llm:get-models'),
     setModel: (modelId: string) =>
       ipcRenderer.invoke('llm:set-model', modelId),
+    addModel: (modelInfo: { id: string; name: string; baseURL: string; apiKey?: string }) =>
+      ipcRenderer.invoke('llm:add-model', modelInfo),
+    testModel: (modelInfo: { id: string; baseURL: string; apiKey: string }) =>
+      ipcRenderer.invoke('llm:test-model', modelInfo),
     // 会话管理
     listSessions: () =>
       ipcRenderer.invoke('llm:list-sessions'),

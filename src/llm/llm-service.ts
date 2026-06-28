@@ -32,6 +32,7 @@ export interface ModelInfo {
   id: string;
   name: string;
   baseURL: string;
+  apiKey?: string;
 }
 
 let cachedConfig: LLMConfig | null = null;
@@ -86,7 +87,13 @@ function loadConfig(): LLMConfig {
           model: config.llm.model || envModel || 'gpt-4o-mini',
         };
         if (config.llm.models && Array.isArray(config.llm.models)) {
-          cachedModels = config.llm.models;
+          cachedModels = config.llm.models.map((m: any) => {
+            let key = m.apiKey || '';
+            if (key && isEncrypted(key)) {
+              try { key = decrypt(key); } catch {}
+            }
+            return { ...m, apiKey: key };
+          });
         } else {
           cachedModels = [{
             id: cachedConfig.model,
@@ -131,6 +138,7 @@ export function setModel(modelId: string) {
   if (found) {
     cachedConfig = {
       ...cachedConfig!,
+      apiKey: found.apiKey || cachedConfig!.apiKey,
       model: found.id,
       baseURL: found.baseURL,
     };
@@ -144,6 +152,120 @@ export function getAvailableModels(): ModelInfo[] {
 
 export function getModel(): string {
   return getConfig().model;
+}
+
+// 查找 config.json 路径（与 loadConfig 中的搜索路径一致）
+function findConfigPath(): string | null {
+  const searchPaths = [
+    path.join(process.cwd(), 'config.json'),
+    path.join(__dirname, '..', '..', 'config.json'),
+    path.join(__dirname, '..', 'config.json'),
+  ];
+  for (const p of searchPaths) {
+    if (fs.existsSync(p)) return p;
+  }
+  return null;
+}
+
+export function addModel(modelInfo: ModelInfo): { success: boolean; error?: string } {
+  const configPath = findConfigPath();
+  if (!configPath) {
+    return { success: false, error: 'config.json 未找到' };
+  }
+  try {
+    const raw = fs.readFileSync(configPath, 'utf-8');
+    const config = JSON.parse(raw);
+
+    if (!config.llm) config.llm = {};
+    if (!Array.isArray(config.llm.models)) config.llm.models = [];
+
+    // 检查是否已存在
+    const exists = config.llm.models.some((m: any) => m.id === modelInfo.id);
+    if (exists) {
+      return { success: false, error: `模型 "${modelInfo.id}" 已存在` };
+    }
+
+    config.llm.models.push({
+      id: modelInfo.id,
+      name: modelInfo.name || modelInfo.id,
+      baseURL: modelInfo.baseURL || config.llm.baseURL || 'https://api.openai.com/v1',
+      apiKey: modelInfo.apiKey || undefined,
+    });
+
+    fs.writeFileSync(configPath, JSON.stringify(config, null, 2), 'utf-8');
+
+    // 更新缓存
+    cachedModels.push(config.llm.models[config.llm.models.length - 1]);
+
+    return { success: true };
+  } catch (err) {
+    return { success: false, error: '保存失败: ' + (err instanceof Error ? err.message : String(err)) };
+  }
+}
+
+export async function testModel(modelInfo: { id: string; baseURL: string; apiKey: string }): Promise<{ success: boolean; error?: string }> {
+  const endpoint = modelInfo.baseURL.replace(/\/+$/, '') + '/chat/completions';
+
+  // 解密 API Key（如果已加密），和 loadConfig 保持一致的逻辑
+  let apiKey = modelInfo.apiKey;
+  if (apiKey && isEncrypted(apiKey)) {
+    try {
+      apiKey = decrypt(apiKey);
+    } catch {
+      // 解密失败则使用原始值
+    }
+  }
+
+  return new Promise((resolve) => {
+    const url = new URL(endpoint);
+    const mod = url.protocol === 'https:' ? https : http;
+    const payload = JSON.stringify({
+      model: modelInfo.id,
+      messages: [{ role: 'user', content: 'hi' }],
+      max_tokens: 10,
+      temperature: 0.7,
+    });
+
+    const req = mod.request({
+      hostname: url.hostname,
+      port: url.port || undefined,
+      path: url.pathname + url.search,
+      method: 'POST',
+      headers: {
+        'Authorization': `Bearer ${apiKey}`,
+        'Content-Type': 'application/json',
+        'Content-Length': Buffer.byteLength(payload),
+      },
+      timeout: 15000,
+    }, (res) => {
+      let body = '';
+      res.on('data', (chunk: Buffer) => { body += chunk.toString(); });
+      res.on('end', () => {
+        if (res.statusCode === 200) {
+          resolve({ success: true });
+        } else {
+          let msg = `HTTP ${res.statusCode}`;
+          try {
+            const errJson = JSON.parse(body);
+            msg = errJson.error?.message || errJson.message || errJson.error || msg;
+          } catch {}
+          resolve({ success: false, error: msg + (body ? ` — ${body.slice(0, 200)}` : '') });
+        }
+      });
+    });
+
+    req.on('error', (err: Error) => {
+      resolve({ success: false, error: '连接失败: ' + err.message });
+    });
+
+    req.on('timeout', () => {
+      req.destroy();
+      resolve({ success: false, error: '连接超时 (15s)' });
+    });
+
+    req.write(payload);
+    req.end();
+  });
 }
 
 // ============================================================

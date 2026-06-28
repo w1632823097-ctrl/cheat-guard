@@ -8,6 +8,8 @@ interface LLMAPI {
   getHistory: (sessionId: string) => Promise<{ success: boolean; data?: unknown[]; error?: string }>;
   getModels: () => Promise<{ success: boolean; data?: unknown[]; error?: string }>;
   setModel: (modelId: string) => Promise<{ success: boolean; error?: string }>;
+  addModel: (modelInfo: { id: string; name: string; baseURL: string; apiKey?: string }) => Promise<{ success: boolean; error?: string }>;
+  testModel: (modelInfo: { id: string; baseURL: string; apiKey: string }) => Promise<{ success: boolean; error?: string }>;
   listSessions: () => Promise<{ success: boolean; data?: unknown[]; error?: string }>;
   newSession: (title?: string) => Promise<{ success: boolean; data?: unknown; error?: string }>;
   deleteSession: (sessionId: string) => Promise<{ success: boolean; error?: string }>;

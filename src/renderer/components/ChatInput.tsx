@@ -39,7 +39,14 @@ export default function ChatInput() {
   // 保持 ref 与 state 同步
   isRecordingRef.current = isRecording;
 
-  // 延迟辅助函数
+  // 添加模型弹窗
+  const [showAddModel, setShowAddModel] = useState(false);
+  const [newModelId, setNewModelId] = useState('');
+  const [newModelBaseURL, setNewModelBaseURL] = useState('');
+  const [newModelApiKey, setNewModelApiKey] = useState('');
+  const [testingModel, setTestingModel] = useState(false);
+  const [testResult, setTestResult] = useState<{ ok: boolean; msg: string } | null>(null);
+  const [showApiKey, setShowApiKey] = useState(false);
   const delay = (ms: number) => new Promise((resolve) => setTimeout(resolve, ms));
 
   // 显示 toast 通知
@@ -261,6 +268,66 @@ export default function ChatInput() {
     setIsModelDropdownOpen(false);
   }, [setCurrentModelId, setIsModelDropdownOpen]);
 
+  // 测试模型连接
+  const handleTestModel = useCallback(async () => {
+    const id = newModelId.trim();
+    const baseURL = newModelBaseURL.trim();
+    const apiKey = newModelApiKey.trim();
+    if (!id) { showToast('请填写模型 ID', 'warning'); return; }
+    if (!baseURL) { showToast('请填写 API 地址', 'warning'); return; }
+    if (!apiKey) { showToast('请填写 API Key', 'warning'); return; }
+
+    setTestingModel(true);
+    setTestResult(null);
+
+    try {
+      if (!window.electronAPI?.llm?.testModel) {
+        setTestResult({ ok: false, msg: 'testModel 接口不可用' });
+        return;
+      }
+      const result = await window.electronAPI.llm.testModel({ id, baseURL, apiKey });
+      if (result.success) {
+        setTestResult({ ok: true, msg: '连接成功！' });
+      } else {
+        setTestResult({ ok: false, msg: result.error || '未知错误' });
+      }
+    } catch (err) {
+      setTestResult({ ok: false, msg: '请求异常: ' + (err instanceof Error ? err.message : String(err)) });
+    } finally {
+      setTestingModel(false);
+    }
+  }, [newModelId, newModelBaseURL, newModelApiKey, showToast]);
+
+  // 添加模型
+  const handleAddModel = useCallback(async () => {
+    const id = newModelId.trim();
+    const baseURL = newModelBaseURL.trim();
+    const apiKey = newModelApiKey.trim();
+    if (!id) { showToast('模型 ID 不能为空', 'warning'); return; }
+    if (!baseURL) { showToast('API 地址不能为空', 'warning'); return; }
+    if (!apiKey) { showToast('API Key 不能为空', 'warning'); return; }
+    if (!window.electronAPI?.llm?.addModel) return;
+    try {
+      const result = await window.electronAPI.llm.addModel({ id, name: id, baseURL, apiKey });
+      if (result.success) {
+        const modelsResult = await window.electronAPI.llm.getModels();
+        if (modelsResult.success && Array.isArray(modelsResult.data)) {
+          setAvailableModels(modelsResult.data as any[]);
+        }
+        await switchModel(id);
+        setShowAddModel(false);
+        setNewModelId('');
+        setNewModelBaseURL('');
+        setNewModelApiKey('');
+        setTestResult(null);
+      } else {
+        showToast(result.error || '添加失败', 'error');
+      }
+    } catch (err) {
+      showToast('添加失败: ' + (err instanceof Error ? err.message : String(err)), 'error');
+    }
+  }, [newModelId, newModelBaseURL, newModelApiKey, showToast, setAvailableModels, switchModel]);
+
   // 点击外部关闭模型下拉
   useEffect(() => {
     if (!isModelDropdownOpen) return;
@@ -407,6 +474,21 @@ export default function ChatInput() {
                     )}
                   </button>
                 ))}
+                <div className="model-dropdown-divider"></div>
+                <button
+                  className="model-dropdown-item add-model"
+                  onClick={(e) => {
+                    e.stopPropagation();
+                    setShowAddModel(true);
+                    setIsModelDropdownOpen(false);
+                  }}
+                >
+                  <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+                    <line x1="12" y1="5" x2="12" y2="19"/>
+                    <line x1="5" y1="12" x2="19" y2="12"/>
+                  </svg>
+                  <span>添加模型</span>
+                </button>
               </div>
             )}
           </div>
@@ -450,6 +532,76 @@ export default function ChatInput() {
           </button>
         </div>
       </div>
+
+      {/* 添加模型弹窗 */}
+      {showAddModel && (
+        <div className="modal-overlay">
+          <div className="modal-content">
+            <div className="modal-header">
+              <h3>添加新模型</h3>
+              <button className="modal-close" onClick={() => { setShowAddModel(false); setShowApiKey(false); }} title="关闭">
+                <svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" strokeWidth="2">
+                  <path d="M18 6L6 18M6 6l12 12" />
+                </svg>
+              </button>
+            </div>
+            <label>
+              模型 ID <span className="required">*</span>
+              <input
+                type="text"
+                value={newModelId}
+                onChange={(e) => { setNewModelId(e.target.value); setTestResult(null); }}
+                placeholder="例如: Kimi-K2.6"
+                autoFocus
+              />
+            </label>
+            <label>
+              API Key <span className="required">*</span>
+              <div className="key-input-wrap">
+                <input
+                  type={showApiKey ? 'text' : 'password'}
+                  value={newModelApiKey}
+                  onChange={(e) => { setNewModelApiKey(e.target.value); setTestResult(null); }}
+                  placeholder="sk-xxx..."
+                />
+                <button
+                  type="button"
+                  className={`key-show-btn ${showApiKey ? 'active' : ''}`}
+                  onClick={() => setShowApiKey(!showApiKey)}
+                  title={showApiKey ? '隐藏' : '显示'}
+                >
+                  {showApiKey ? '🙈' : '👁'}
+                </button>
+              </div>
+              {newModelApiKey.length > 0 && (
+                <span className="key-length">{newModelApiKey.length} 字符</span>
+              )}
+            </label>
+            <label>
+              API 地址 <span className="required">*</span>
+              <input
+                type="text"
+                value={newModelBaseURL}
+                onChange={(e) => { setNewModelBaseURL(e.target.value); setTestResult(null); }}
+                placeholder="https://api.xxx.com/v1"
+              />
+            </label>
+            {/* 测试结果 */}
+            {testResult && (
+              <div className={`modal-test-result ${testResult.ok ? 'success' : 'fail'}`}>
+                {testResult.ok ? '✅' : '❌'} {testResult.msg}
+              </div>
+            )}
+            <div className="modal-actions">
+              <button className="modal-btn test" onClick={handleTestModel} disabled={testingModel}>
+                {testingModel ? '测试中...' : '测试连接'}
+              </button>
+              <button className="modal-btn cancel" onClick={() => { setShowAddModel(false); setShowApiKey(false); }}>取消</button>
+              <button className="modal-btn save" onClick={handleAddModel}>保存</button>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 }
