@@ -18,6 +18,10 @@ export default function ChatInput() {
     setCurrentModelId,
     isModelDropdownOpen,
     setIsModelDropdownOpen,
+    editInputText,
+    setEditInputText,
+    regenerateText,
+    setRegenerateText,
   } = useApp();
 
   const [inputText, setInputText] = useState('');
@@ -268,6 +272,47 @@ export default function ChatInput() {
     document.addEventListener('click', handleClickOutside);
     return () => document.removeEventListener('click', handleClickOutside);
   }, [isModelDropdownOpen, setIsModelDropdownOpen]);
+
+  // 监听编辑：将消息文字填入输入框
+  useEffect(() => {
+    if (editInputText) {
+      setInputText(editInputText);
+      setEditInputText('');
+      // 聚焦输入框
+      setTimeout(() => {
+        chatInputRef.current?.focus();
+      }, 50);
+    }
+  }, [editInputText, setEditInputText]);
+
+  // 监听重新生成：直接重新发送，不放输入框
+  useEffect(() => {
+    if (regenerateText) {
+      const textToSend = regenerateText;
+      setRegenerateText('');
+      const timer = setTimeout(() => {
+        if (!textToSend || isLoading) return;
+        addMessage({
+          id: Date.now().toString(),
+          role: 'user',
+          text: textToSend,
+          timestamp: new Date(),
+        });
+        setIsLoading(true);
+        sendLLMRequest(textToSend).then((result) => {
+          if (!result.success) {
+            showToast('请求失败: ' + (result.error || '未知错误'), 'error');
+            setIsLoading(false);
+          }
+        }).catch((err) => {
+          console.error('[Chat] Regenerate error:', err);
+          showToast('请求失败: ' + (err instanceof Error ? err.message : '网络错误'), 'error');
+          setIsLoading(false);
+        });
+      }, 100);
+      return () => clearTimeout(timer);
+    }
+  }, [regenerateText, setRegenerateText]);
 
   const currentModel = availableModels.find((m: any) => m.id === currentModelId);
 

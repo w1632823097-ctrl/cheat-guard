@@ -75,6 +75,14 @@ interface AppState {
   isDragging: boolean;
   setIsDragging: (v: boolean) => void;
 
+  // 消息编辑：将文本填入输入框
+  editInputText: string;
+  setEditInputText: (text: string) => void;
+
+  // 重新生成：触发重新发送消息
+  regenerateText: string;
+  setRegenerateText: (text: string) => void;
+
   // 主题
   theme: 'dark' | 'light';
   setTheme: (v: 'dark' | 'light') => void;
@@ -103,6 +111,8 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
   const [otherPartyTranscript, setOtherPartyTranscript] = useState('');
   const [streamingMessageId, setStreamingMessageId] = useState<string | null>(null);
   const [isDragging, setIsDragging] = useState(false);
+  const [editInputText, setEditInputText] = useState('');
+  const [regenerateText, setRegenerateText] = useState('');
 
   // 从 localStorage 读取主题和字体大小偏好
   const [theme, setThemeState] = useState<'dark' | 'light'>(() => {
@@ -179,17 +189,35 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
     setMessages([]);
   }, []);
 
+  // 编辑消息：将消息文字填入输入框（不删除原消息）
   const editMessage = useCallback((id: string, text: string) => {
-    setMessages((prev) =>
-      prev.map((msg) => (msg.id === id ? { ...msg, text } : msg))
-    );
+    setEditInputText(text);
   }, []);
 
+  // 重新生成：触发重新发送（不删除原来的对话记录）
   const regenerateMessage = useCallback((id: string) => {
     setMessages((prev) => {
       const index = prev.findIndex((msg) => msg.id === id);
       if (index === -1) return prev;
-      return prev.slice(0, index + 1);
+
+      // 找到需要重新发送的用户消息
+      const target = prev[index];
+      let userIndex = -1;
+      if (target.role === 'user') {
+        userIndex = index;
+      } else {
+        // assistant 消息：找前一条用户消息
+        for (let i = index - 1; i >= 0; i--) {
+          if (prev[i].role === 'user') {
+            userIndex = i;
+            break;
+          }
+        }
+      }
+      if (userIndex === -1) return prev;
+
+      setRegenerateText(prev[userIndex].text);
+      return prev; // 不修改消息列表
     });
   }, []);
 
@@ -299,6 +327,10 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
         setStreamingMessageId,
         isDragging,
         setIsDragging,
+        editInputText,
+        setEditInputText,
+        regenerateText,
+        setRegenerateText,
         theme,
         setTheme,
         fontSize,

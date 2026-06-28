@@ -127,14 +127,20 @@ function copyCodeBlock(btn: HTMLElement) {
   const code = wrapper?.querySelector('code');
   if (!code) return;
   const text = code.textContent || '';
-  navigator.clipboard.writeText(text).then(() => {
-    btn.classList.add('copied');
-    btn.title = '已复制';
-    setTimeout(() => {
-      btn.classList.remove('copied');
-      btn.title = '复制代码';
-    }, 2000);
-  }).catch(() => {});
+  const ta = document.createElement('textarea');
+  ta.value = text;
+  ta.style.position = 'fixed';
+  ta.style.left = '-9999px';
+  document.body.appendChild(ta);
+  ta.select();
+  try { document.execCommand('copy'); } catch { /* ignore */ }
+  document.body.removeChild(ta);
+  btn.classList.add('copied');
+  btn.title = '已复制';
+  setTimeout(() => {
+    btn.classList.remove('copied');
+    btn.title = '复制代码';
+  }, 2000);
 }
 
 // 暴露到全局，供 HTML onclick 使用
@@ -169,8 +175,6 @@ function formatTime(date: Date): string {
 export default function MessageList() {
   const { messages, isLoading, editMessage, regenerateMessage } = useApp();
   const messageListRef = useRef<HTMLDivElement>(null);
-  const [editingId, setEditingId] = useState<string | null>(null);
-  const [editText, setEditText] = useState('');
 
   useEffect(() => {
     if (messageListRef.current) {
@@ -179,29 +183,23 @@ export default function MessageList() {
   }, [messages]);
 
   // 复制消息
-  const copyMessage = (text: string) => {
-    navigator.clipboard.writeText(text).then(() => {
-      // 可以添加复制成功的提示
-    }).catch(() => {});
-  };
-
-  // 开始编辑
-  const startEdit = (msg: { id: string; text: string }) => {
-    setEditingId(msg.id);
-    setEditText(msg.text);
-  };
-
-  // 取消编辑
-  const cancelEdit = () => {
-    setEditingId(null);
-    setEditText('');
-  };
-
-  // 保存编辑
-  const saveEdit = (id: string) => {
-    editMessage(id, editText);
-    setEditingId(null);
-    setEditText('');
+  const copyMessage = (text: string, btn: HTMLButtonElement) => {
+    const ta = document.createElement('textarea');
+    ta.value = text;
+    ta.style.position = 'fixed';
+    ta.style.left = '-9999px';
+    ta.style.top = '-9999px';
+    document.body.appendChild(ta);
+    ta.select();
+    try { document.execCommand('copy'); } catch { /* ignore */ }
+    document.body.removeChild(ta);
+    // 视觉反馈
+    btn.classList.add('copied');
+    btn.title = '已复制';
+    setTimeout(() => {
+      btn.classList.remove('copied');
+      btn.title = '复制';
+    }, 1500);
   };
 
   return (
@@ -252,35 +250,16 @@ export default function MessageList() {
               
               {/* 消息体 */}
               <div className="msg-body">
-                {editingId === msg.id ? (
-                  <div className="msg-edit-wrapper">
-                    <textarea
-                      className="msg-edit-textarea"
-                      value={editText}
-                      onChange={(e) => setEditText(e.target.value)}
-                      rows={3}
-                    />
-                    <div className="msg-edit-actions">
-                      <button className="msg-edit-btn cancel" onClick={cancelEdit}>
-                        取消
-                      </button>
-                      <button className="msg-edit-btn save" onClick={() => saveEdit(msg.id)}>
-                        保存
-                      </button>
-                    </div>
-                  </div>
-                ) : (
-                  <>
-                    <div
-                      className="msg-bubble"
-                      dangerouslySetInnerHTML={{ __html: renderMessageContent(msg.text) }}
-                    />
-                    <div className="msg-actions">
+                <div
+                  className="msg-bubble"
+                  dangerouslySetInnerHTML={{ __html: renderMessageContent(msg.text) }}
+                />
+                <div className="msg-actions">
                       {/* 复制按钮（仅 assistant 消息显示） */}
                       {msg.role === 'assistant' && !msg.isError && (
                         <button
                           className="msg-action-btn"
-                          onClick={() => copyMessage(msg.text)}
+                          onClick={(e) => copyMessage(msg.text, e.currentTarget)}
                           title="复制"
                         >
                           <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
@@ -293,7 +272,17 @@ export default function MessageList() {
                       {msg.role === 'user' && (
                         <button
                           className="msg-action-btn"
-                          onClick={() => startEdit(msg)}
+                          onClick={(e) => {
+                            editMessage(msg.id, msg.text);
+                            // 视觉反馈
+                            const btn = e.currentTarget;
+                            btn.classList.add('copied');
+                            btn.title = '已填入输入框';
+                            setTimeout(() => {
+                              btn.classList.remove('copied');
+                              btn.title = '编辑';
+                            }, 1500);
+                          }}
                           title="编辑"
                         >
                           <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
@@ -306,7 +295,17 @@ export default function MessageList() {
                       {(msg.role === 'user' || msg.role === 'assistant') && (
                         <button
                           className="msg-action-btn"
-                          onClick={() => regenerateMessage(msg.id)}
+                          onClick={(e) => {
+                            regenerateMessage(msg.id);
+                            // 视觉反馈
+                            const btn = e.currentTarget;
+                            btn.classList.add('copied');
+                            btn.title = '正在重新生成';
+                            setTimeout(() => {
+                              btn.classList.remove('copied');
+                              btn.title = '重新生成';
+                            }, 2000);
+                          }}
                           title="重新生成"
                         >
                           <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
@@ -316,8 +315,6 @@ export default function MessageList() {
                         </button>
                       )}
                     </div>
-                  </>
-                )}
               </div>
             </div>
           </React.Fragment>

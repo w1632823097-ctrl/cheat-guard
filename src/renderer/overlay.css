@@ -838,6 +838,10 @@ body {
   background: rgba(255, 255, 255, 0.06);
 }
 
+.msg-action-btn.copied {
+  color: #34d399 !important;
+}
+
 /* 消息编辑 */
 .msg-edit-wrapper {
   display: flex;

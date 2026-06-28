@@ -590,10 +590,17 @@ function copyCodeBlock(btn) {
   const code = wrapper?.querySelector('code');
   if (!code) return;
   const text = code.textContent || '';
-  navigator.clipboard.writeText(text).then(() => {
-    btn.classList.add('copied');
-    btn.title = '已复制';
-    setTimeout(() => {
+  const ta = document.createElement('textarea');
+  ta.value = text;
+  ta.style.position = 'fixed';
+  ta.style.left = '-9999px';
+  document.body.appendChild(ta);
+  ta.select();
+  try { document.execCommand('copy'); } catch { /* ignore */ }
+  document.body.removeChild(ta);
+  btn.classList.add('copied');
+  btn.title = '已复制';
+  setTimeout(() => {
       btn.classList.remove('copied');
       btn.title = '复制代码';
     }, 2000);
@@ -780,10 +787,16 @@ function bindCopyBtn(el) {
     const id = btn.dataset.id;
     const msg = messages.find(m => m.id === id);
     if (msg) {
-      navigator.clipboard.writeText(msg.text).then(() => {
-        btn.classList.add('copied');
-        setTimeout(() => btn.classList.remove('copied'), 1500);
-      });
+      const ta = document.createElement('textarea');
+      ta.value = msg.text;
+      ta.style.position = 'fixed';
+      ta.style.left = '-9999px';
+      document.body.appendChild(ta);
+      ta.select();
+      try { document.execCommand('copy'); } catch { /* ignore */ }
+      document.body.removeChild(ta);
+      btn.classList.add('copied');
+      setTimeout(() => btn.classList.remove('copied'), 1500);
     }
   });
 }
