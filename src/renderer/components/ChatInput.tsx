@@ -91,9 +91,19 @@ export default function ChatInput() {
     return { success: false, error: lastError || '请求失败' };
   }, [currentSessionId, showToast]);
 
+  const handleCancel = useCallback(() => {
+    window.electronAPI?.llm?.cancelStream();
+  }, []);
+
   const handleSend = useCallback(async () => {
+    // 如果正在加载，取消请求
+    if (isLoading) {
+      handleCancel();
+      return;
+    }
+
     const text = inputText.trim();
-    if (!text || isLoading) return;
+    if (!text) return;
 
     addMessage({
       id: Date.now().toString(),
@@ -116,7 +126,7 @@ export default function ChatInput() {
       showToast('请求失败: ' + (err instanceof Error ? err.message : '网络错误'), 'error');
       setIsLoading(false);
     }
-  }, [inputText, isLoading, addMessage, setIsLoading, sendLLMRequest, showToast]);
+  }, [inputText, isLoading, addMessage, setIsLoading, sendLLMRequest, showToast, handleCancel]);
 
   const handleKeyDown = (e: React.KeyboardEvent) => {
     if (e.key === 'Enter' && !e.shiftKey) {
@@ -124,11 +134,15 @@ export default function ChatInput() {
       handleSend();
     }
 
-    // Esc: 清空输入框内容
+    // Esc: 清空输入框内容 或 取消请求
     if (e.key === 'Escape') {
       e.preventDefault();
       e.stopPropagation();
-      setInputText('');
+      if (isLoading) {
+        handleCancel();
+      } else {
+        setInputText('');
+      }
     }
   };
 
@@ -521,14 +535,21 @@ export default function ChatInput() {
           </button>
           <button
             id="sendBtn"
-            className="send-btn"
+            className={`send-btn ${isLoading ? 'stop-btn' : ''}`}
             onClick={handleSend}
-            disabled={isLoading || !inputText.trim() || isRecording}
+            disabled={(!isLoading && !inputText.trim()) || isRecording}
+            title={isLoading ? '停止生成' : '发送'}
           >
-            <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
-              <line x1="22" y1="2" x2="11" y2="13" />
-              <polygon points="22 2 15 22 11 13 2 9 22 2" />
-            </svg>
+            {isLoading ? (
+              <svg width="18" height="18" viewBox="0 0 24 24" fill="currentColor">
+                <rect x="6" y="6" width="12" height="12" rx="2" />
+              </svg>
+            ) : (
+              <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+                <line x1="22" y1="2" x2="11" y2="13" />
+                <polygon points="22 2 15 22 11 13 2 9 22 2" />
+              </svg>
+            )}
           </button>
         </div>
       </div>

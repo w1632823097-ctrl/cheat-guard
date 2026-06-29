@@ -297,6 +297,17 @@ interface StreamChunk {
 
 type HttpResponseData = LLMResponse | http.IncomingMessage;
 
+// 活跃的流式请求引用，用于取消
+let activeStreamRequest: http.ClientRequest | null = null;
+
+/** 取消当前活跃的流式请求 */
+export function cancelActiveStream(): void {
+  if (activeStreamRequest) {
+    activeStreamRequest.destroy();
+    activeStreamRequest = null;
+  }
+}
+
 function httpRequest(endpoint: string, config: LLMConfig, body: object, stream: boolean): Promise<{ status: number; data: HttpResponseData }> {
   return new Promise((resolve, reject) => {
     const url = new URL(endpoint);
@@ -320,6 +331,7 @@ function httpRequest(endpoint: string, config: LLMConfig, body: object, stream: 
         let errBody = '';
         res.on('data', (chunk) => { errBody += chunk.toString(); });
         res.on('end', () => {
+          activeStreamRequest = null;
           reject(new Error(`HTTP ${res.statusCode}: ${errBody.slice(0, 500)}`));
         });
         return;
@@ -340,8 +352,19 @@ function httpRequest(endpoint: string, config: LLMConfig, body: object, stream: 
       }
     });
 
-    req.on('error', reject);
-    req.setTimeout(30000, () => { req.destroy(); reject(new Error('Request timeout')); });
+    if (stream) {
+      activeStreamRequest = req;
+    }
+
+    req.on('error', (err) => {
+      activeStreamRequest = null;
+      reject(err);
+    });
+    req.setTimeout(30000, () => {
+      activeStreamRequest = null;
+      req.destroy();
+      reject(new Error('Request timeout'));
+    });
     req.write(payload);
     req.end();
   });

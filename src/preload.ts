@@ -83,6 +83,8 @@ contextBridge.exposeInMainWorld('electronAPI', {
       ipcRenderer.invoke('llm:rename-session', sessionId, title),
     getCurrentSession: () =>
       ipcRenderer.invoke('llm:get-current-session'),
+    cancelStream: () =>
+      ipcRenderer.send('llm:cancel-stream'),
   },
 
   // LLM streaming chunk listener

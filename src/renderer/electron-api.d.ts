@@ -15,6 +15,7 @@ interface LLMAPI {
   deleteSession: (sessionId: string) => Promise<{ success: boolean; error?: string }>;
   renameSession: (sessionId: string, title: string) => Promise<{ success: boolean; error?: string }>;
   getCurrentSession: () => Promise<{ success: boolean; data?: string; error?: string }>;
+  cancelStream: () => void;
 }
 
 interface AudioAPI {

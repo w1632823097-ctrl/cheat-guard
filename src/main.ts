@@ -1,6 +1,6 @@
 import { app, BrowserWindow, globalShortcut, ipcMain, desktopCapturer, session } from 'electron';
 import * as path from 'path';
-import { chat, chatStream, clearSession, setApiConfig, getHistory, getAvailableModels, setModel, addModel, testModel, listSessions, newSession, deleteSession, renameSession } from './llm/llm-service';
+import { chat, chatStream, clearSession, setApiConfig, getHistory, getAvailableModels, setModel, addModel, testModel, listSessions, newSession, deleteSession, renameSession, cancelActiveStream } from './llm/llm-service';
 import { setWindowInvisible, setNoActivateStyle, isWDAvailable } from './native/wda-wrapper';
 import { recognizeText, cleanupTempFiles, saveTempImage } from './ocr/ocr-service';
 import { startLogCleanupTimer } from './utils/security';
@@ -600,6 +600,11 @@ ipcMain.handle('llm:test-model', async (_event, modelInfo: { id: string; baseURL
   } catch (err) {
     return { success: false, error: getErrorMessage(err) };
   }
+});
+
+// 取消当前流式请求
+ipcMain.on('llm:cancel-stream', () => {
+  cancelActiveStream();
 });
 
 // ============================================================

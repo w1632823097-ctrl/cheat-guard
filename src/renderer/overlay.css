@@ -1105,6 +1105,18 @@ body {
 .send-btn:active { opacity: 0.7; }
 .send-btn svg { width: 14px; height: 14px; }
 
+/* 停止按钮（发送中状态） */
+.send-btn.stop-btn {
+  background: rgba(255, 255, 255, 0.15);
+  border-color: rgba(255, 255, 255, 0.25);
+  color: rgba(255, 255, 255, 0.9);
+}
+.send-btn.stop-btn:hover {
+  background: rgba(255, 80, 80, 0.25);
+  border-color: rgba(255, 80, 80, 0.4);
+  color: #ff6666;
+}
+
 /* 截图按钮（输入区内联） */
 .screenshot-btn {
   -webkit-app-region: no-drag;
