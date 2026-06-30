@@ -16,6 +16,25 @@ function renderMessageContent(text: string): string {
   const codeBlocks: string[] = [];
   html = html.replace(/```(\w*)\n?([\s\S]*?)```/g, (_m, lang, code) => {
     const trimmed = code.trim();
+
+    // Mermaid 图表：渲染为 SVG
+    if (lang === 'mermaid') {
+      const mermaidId = 'mermaid-' + Math.random().toString(36).slice(2, 10);
+      const blockHtml = `<div class="mermaid-block-wrapper"><div class="mermaid" id="${mermaidId}">${escapeHtml(trimmed)}</div></div>`;
+      // 延迟渲染 mermaid
+      setTimeout(() => {
+        try {
+          if (typeof (window as any).mermaid !== 'undefined') {
+            (window as any).mermaid.init(undefined, document.querySelectorAll(`#${mermaidId}`));
+          }
+        } catch (e) {
+          console.error('Mermaid render error:', e);
+        }
+      }, 100);
+      codeBlocks.push(blockHtml);
+      return `\x00CODEBLOCK_${codeBlocks.length - 1}\x00`;
+    }
+
     let highlighted;
     try {
       if (typeof hljs !== 'undefined') {
@@ -31,7 +50,12 @@ function renderMessageContent(text: string): string {
       highlighted = escapeHtml(trimmed);
     }
     const label = lang ? `<span class="code-lang">${escapeHtml(lang)}</span>` : '';
-    const blockHtml = `<div class="code-block-wrapper">${label}<button class="code-copy-btn" onclick="copyCodeBlock(this)" title="复制代码"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="9" y="9" width="13" height="13" rx="2" ry="2"/><path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"/></svg></button><pre class="code-block"><code class="hljs">${highlighted}</code></pre></div>`;
+    // 为代码添加行号：每行包裹在 div.code-line-wrapper 中，行号用 data-line-num 属性
+    const codeLines = highlighted.split('\n');
+    const codeWithLineNumbers = codeLines.map((line: string, i: number) =>
+      `<div class="code-line-wrapper" data-line-num="${i + 1}"><span class="code-line-text">${line || ' '}</span></div>`
+    ).join('');
+    const blockHtml = `<div class="code-block-wrapper">${label}<button class="code-copy-btn" onclick="copyCodeBlock(this)" title="复制代码"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="9" y="9" width="13" height="13" rx="2" ry="2"/><path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"/></svg></button><pre class="code-block"><code class="hljs code-with-lines">${codeWithLineNumbers}</code></pre></div>`;
     codeBlocks.push(blockHtml);
     return `\x00CODEBLOCK_${codeBlocks.length - 1}\x00`;
   });
@@ -90,7 +114,15 @@ function renderMessageContent(text: string): string {
   html = html.replace(/\*\*(.+?)\*\*/g, '<strong>$1</strong>');
   html = html.replace(/\*(.+?)\*/g, '<em>$1</em>');
 
+  // 图片（Markdown 语法：![alt](url)）
+  html = html.replace(/!\[([^\]]*)\]\(([^)]+)\)/g, (_m, alt, src) => {
+    const safeSrc = escapeHtml(src);
+    const safeAlt = escapeHtml(alt);
+    return `<img class="md-image" src="${safeSrc}" alt="${safeAlt}" loading="lazy" onerror="this.style.display='none'" />`;
+  });
+
   // 链接（确保 href 安全，只允许 http/https/mailto）
+  // 注意：必须在图片之后处理，避免图片语法被误匹配
   html = html.replace(/\[([^\]]+)\]\(([^)]+)\)/g, (_m, linkText, href) => {
     const safeHref = escapeHtml(href);
     const isSafe = /^(https?:\/\/|mailto:)/i.test(href);
@@ -130,17 +162,21 @@ function renderMessageContent(text: string): string {
 // 复制代码块
 function copyCodeBlock(btn: HTMLElement) {
   const wrapper = btn.closest('.code-block-wrapper');
-  const code = wrapper?.querySelector('code');
-  if (!code) return;
-  const text = code.textContent || '';
-  const ta = document.createElement('textarea');
-  ta.value = text;
-  ta.style.position = 'fixed';
-  ta.style.left = '-9999px';
-  document.body.appendChild(ta);
-  ta.select();
-  try { document.execCommand('copy'); } catch { /* ignore */ }
-  document.body.removeChild(ta);
+  if (!wrapper) return;
+  // 从 .code-line-text 中提取纯文本代码
+  const lines = wrapper.querySelectorAll('.code-line-text');
+  const text = Array.from(lines).map((el) => el.textContent || '').join('\n');
+  navigator.clipboard.writeText(text).catch(() => {
+    // fallback
+    const ta = document.createElement('textarea');
+    ta.value = text;
+    ta.style.position = 'fixed';
+    ta.style.left = '-9999px';
+    document.body.appendChild(ta);
+    ta.select();
+    try { document.execCommand('copy'); } catch { /* ignore */ }
+    document.body.removeChild(ta);
+  });
   btn.classList.add('copied');
   btn.title = '已复制';
   setTimeout(() => {
@@ -164,29 +200,73 @@ function formatTime(date: Date): string {
   const now = new Date();
   const isToday = date.toDateString() === now.toDateString();
   const timeStr = date.toLocaleTimeString('zh-CN', { hour: '2-digit', minute: '2-digit' });
-  
+
   if (isToday) {
     return timeStr;
   }
-  
+
   const yesterday = new Date(now);
   yesterday.setDate(yesterday.getDate() - 1);
   if (date.toDateString() === yesterday.toDateString()) {
     return '昨天 ' + timeStr;
   }
-  
+
   return date.toLocaleDateString('zh-CN', { month: 'short', day: 'numeric' }) + ' ' + timeStr;
+}
+
+// 相对时间格式化（如"2分钟前"）
+function formatRelativeTime(date: Date): string {
+  const now = new Date();
+  const diff = now.getTime() - date.getTime();
+  const seconds = Math.floor(diff / 1000);
+  const minutes = Math.floor(seconds / 60);
+  const hours = Math.floor(minutes / 60);
+  const days = Math.floor(hours / 24);
+
+  if (seconds < 10) return '刚刚';
+  if (seconds < 60) return `${seconds}秒前`;
+  if (minutes < 60) return `${minutes}分钟前`;
+  if (hours < 24) return `${hours}小时前`;
+  if (days === 1) return '昨天';
+  if (days < 7) return `${days}天前`;
+  return formatTime(date);
 }
 
 export default function MessageList() {
   const { messages, isLoading, editMessage, regenerateMessage } = useApp();
   const messageListRef = useRef<HTMLDivElement>(null);
+  const isNearBottomRef = useRef(true);
+  const prevMessagesLengthRef = useRef(messages.length);
 
+  // 智能滚动：只在用户位于底部时自动滚动
   useEffect(() => {
-    if (messageListRef.current) {
-      messageListRef.current.scrollTop = messageListRef.current.scrollHeight;
+    const container = messageListRef.current;
+    if (!container) return;
+
+    const isNewMessage = messages.length > prevMessagesLengthRef.current;
+    prevMessagesLengthRef.current = messages.length;
+
+    if (isNewMessage && isNearBottomRef.current) {
+      requestAnimationFrame(() => {
+        container.scrollTop = container.scrollHeight;
+      });
     }
   }, [messages]);
+
+  // 监听滚动位置，判断用户是否在底部
+  useEffect(() => {
+    const container = messageListRef.current;
+    if (!container) return;
+
+    const handleScroll = () => {
+      const threshold = 50; // 距离底部 50px 内视为在底部
+      isNearBottomRef.current =
+        container.scrollHeight - container.scrollTop - container.clientHeight < threshold;
+    };
+
+    container.addEventListener('scroll', handleScroll);
+    return () => container.removeEventListener('scroll', handleScroll);
+  }, []);
 
   // 复制消息
   const copyMessage = (text: string, btn: HTMLButtonElement) => {
@@ -226,7 +306,7 @@ export default function MessageList() {
             {/* 时间分隔线 */}
             {showTime && (
               <div className="message-time-divider">
-                <span>{formatTime(msg.timestamp)}</span>
+                <span title={formatTime(msg.timestamp)}>{formatRelativeTime(msg.timestamp)}</span>
               </div>
             )}
             

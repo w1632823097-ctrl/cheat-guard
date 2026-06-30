@@ -56,13 +56,43 @@ export default function ChatInput() {
     }
   }, []);
 
+  // 友好的错误提示映射
+  const getFriendlyErrorMessage = (error: string): string => {
+    const lower = error.toLowerCase();
+    if (lower.includes('timeout') || lower.includes('etimedout')) {
+      return '请求超时，模型响应较慢，请稍后重试';
+    }
+    if (lower.includes('econnrefused') || lower.includes('refused')) {
+      return '无法连接到模型服务，请检查网络或 API 配置';
+    }
+    if (lower.includes('enotfound') || lower.includes('not found')) {
+      return '找不到模型服务地址，请检查 API 地址配置';
+    }
+    if (lower.includes('401') || lower.includes('unauthorized')) {
+      return 'API Key 无效或已过期，请检查密钥配置';
+    }
+    if (lower.includes('429') || lower.includes('rate limit')) {
+      return '请求过于频繁，请稍后再试';
+    }
+    if (lower.includes('500') || lower.includes('502') || lower.includes('503')) {
+      return '模型服务暂时不可用，请稍后重试';
+    }
+    if (lower.includes('abort') || lower.includes('cancel')) {
+      return '请求已取消';
+    }
+    if (lower.includes('network') || lower.includes('fetch')) {
+      return '网络连接异常，请检查网络状态';
+    }
+    return '请求失败: ' + error;
+  };
+
   // 带重试的 LLM 请求
   const sendLLMRequest = useCallback(async (text: string, maxRetries: number = 3): Promise<{ success: boolean; data?: string; error?: string }> => {
     let lastError: string | undefined;
     for (let attempt = 0; attempt <= maxRetries; attempt++) {
       try {
         if (!window.electronAPI?.llm?.chatStream) {
-          return { success: false, error: 'LLM 服务未就绪' };
+          return { success: false, error: 'LLM 服务未就绪，请检查应用配置' };
         }
         const result = await window.electronAPI.llm.chatStream(currentSessionId, text);
         if (result.success) {
@@ -118,12 +148,14 @@ export default function ChatInput() {
       const result = await sendLLMRequest(text);
       if (!result.success) {
         // 使用 toast 替代聊天中的错误消息
-        showToast('请求失败: ' + (result.error || '未知错误'), 'error');
+        const friendlyError = getFriendlyErrorMessage(result.error || '未知错误');
+        showToast(friendlyError, 'error');
         setIsLoading(false);
       }
     } catch (err) {
       console.error('[Chat] Send error:', err);
-      showToast('请求失败: ' + (err instanceof Error ? err.message : '网络错误'), 'error');
+      const friendlyError = getFriendlyErrorMessage(err instanceof Error ? err.message : '网络错误');
+      showToast(friendlyError, 'error');
       setIsLoading(false);
     }
   }, [inputText, isLoading, addMessage, setIsLoading, sendLLMRequest, showToast, handleCancel]);

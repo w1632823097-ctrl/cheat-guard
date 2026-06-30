@@ -620,7 +620,7 @@ body {
 .chat-messages {
   flex: 1;
   overflow-y: auto;
-  overflow-x: auto;
+  overflow-x: hidden;
   padding: 12px 14px;
   display: flex;
   flex-direction: column;
@@ -700,8 +700,10 @@ body {
   transform: translateX(2px);
 }
 
-.message-row.user      { align-self: flex-end; }
+.message-row.user      { margin-left: auto; justify-content: flex-end; flex-direction: row-reverse; }
 .message-row.assistant { align-self: flex-start; }
+
+.message-row.user:hover { transform: translateX(-2px); }
 
 @keyframes msgIn {
   from { opacity: 0; transform: translateY(8px) scale(0.95); }
@@ -728,6 +730,8 @@ body {
   font-size: 12px;
   line-height: 1.6;
   word-break: break-word;
+  max-width: 100%;
+  min-width: 0;
   transition: box-shadow 0.2s ease, transform 0.15s ease;
 }
 
@@ -1524,7 +1528,30 @@ body {
   border-radius: 10px;
   border: 1px solid rgba(255, 255, 255, 0.06);
   background: #1a1b26;
-  overflow: hidden;
+  overflow-x: auto;
+  overflow-y: hidden;
+  max-width: 100%;
+  min-width: 0;
+}
+
+.code-block-wrapper::-webkit-scrollbar {
+  height: 4px;
+  background: transparent;
+}
+
+.code-block-wrapper::-webkit-scrollbar-track {
+  background: transparent;
+  border: none;
+}
+
+.code-block-wrapper::-webkit-scrollbar-thumb {
+  background: rgba(255, 255, 255, 0.08);
+  border-radius: 2px;
+  border: none;
+}
+
+.code-block-wrapper::-webkit-scrollbar-thumb:hover {
+  background: rgba(255, 255, 255, 0.18);
 }
 
 .code-block-wrapper .code-lang {
@@ -1579,7 +1606,6 @@ body {
 .code-block {
   margin: 0;
   padding: 14px 12px;
-  overflow-x: auto;
   font-family: 'Cascadia Code', 'Fira Code', 'JetBrains Mono', 'Consolas', 'Monaco', monospace;
   font-size: 12px;
   line-height: 1.55;
@@ -1588,27 +1614,99 @@ body {
 }
 
 .code-block code.hljs {
-  background: transparent;
+  display: block;
+  overflow-x: visible;
   padding: 0;
+  background: transparent;
   font-family: inherit;
   font-size: inherit;
   line-height: inherit;
-}
-
-/* 滚动条：代码块 */
-.code-block::-webkit-scrollbar { height: 4px; }
-.code-block::-webkit-scrollbar-track { background: transparent; }
-.code-block::-webkit-scrollbar-thumb {
-  background: rgba(255, 255, 255, 0.06);
-  border-radius: 2px;
 }
 
 /* 覆盖 highlight.js atom-one-dark 背景（使用我们的深色） */
 .code-block .hljs { background: #1a1b26; color: #c9d1d9; }
 
 /* ============================================================
-   行内代码
+   代码块行号
    ============================================================ */
+.code-with-lines {
+  counter-reset: line;
+}
+
+.code-line-wrapper {
+  display: flex;
+  min-height: 1.55em;
+}
+
+.code-line-wrapper::before {
+  counter-increment: line;
+  content: counter(line);
+  width: 36px;
+  min-width: 36px;
+  text-align: right;
+  padding-right: 8px;
+  color: rgba(255, 255, 255, 0.2);
+  font-size: 11px;
+  user-select: none;
+  border-right: 1px solid rgba(255, 255, 255, 0.05);
+  margin-right: 12px;
+  flex-shrink: 0;
+}
+
+.code-line-text {
+  white-space: pre;
+  flex: 1;
+  min-width: 0;
+}
+
+/* ============================================================
+   Mermaid 图表
+   ============================================================ */
+.mermaid-block-wrapper {
+  position: relative;
+  margin: 8px 0;
+  border-radius: 10px;
+  border: 1px solid rgba(255, 255, 255, 0.06);
+  background: #1a1b26;
+  padding: 14px 12px;
+  overflow-x: auto;
+  overflow-y: hidden;
+  max-width: 100%;
+  min-width: 0;
+}
+
+.mermaid-block-wrapper .mermaid {
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  min-height: 50px;
+}
+
+/* Mermaid 滚动条（与代码块一致） */
+.mermaid-block-wrapper::-webkit-scrollbar {
+  height: 4px;
+  background: transparent;
+}
+
+.mermaid-block-wrapper::-webkit-scrollbar-track {
+  background: transparent;
+  border: none;
+}
+
+.mermaid-block-wrapper::-webkit-scrollbar-thumb {
+  background: rgba(255, 255, 255, 0.08);
+  border-radius: 2px;
+  border: none;
+}
+
+.mermaid-block-wrapper::-webkit-scrollbar-thumb:hover {
+  background: rgba(255, 255, 255, 0.18);
+}
+
+.mermaid-block-wrapper {
+  scrollbar-width: none;
+  -ms-overflow-style: none;
+}
 .inline-code {
   padding: 2px 6px;
   border-radius: 5px;
@@ -1633,6 +1731,25 @@ body {
   transition: border-color 0.15s;
 }
 .md-link:hover { border-color: #93c5fd; }
+
+/* 图片 */
+.md-image {
+  display: block;
+  max-width: 100%;
+  max-height: 300px;
+  width: auto;
+  height: auto;
+  border-radius: 8px;
+  margin: 8px 0;
+  border: 1px solid rgba(255, 255, 255, 0.06);
+  cursor: pointer;
+  transition: transform 0.2s ease, box-shadow 0.2s ease;
+}
+
+.md-image:hover {
+  transform: scale(1.02);
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.3);
+}
 
 .md-hr {
   border: none;
