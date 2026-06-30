@@ -104,14 +104,16 @@ function renderMessageContent(text: string): string {
   // 列表项
   html = html.replace(/^- (.+)$/gm, '<li class="md-li">$1</li>');
   html = html.replace(/^\d+\. (.+)$/gm, '<li class="md-li">$1</li>');
-  html = html.replace(/((?:<li class="md-li">.*?<\/li>\n?)+)/g, '<ul class="md-list">$1</ul>');
+  html = html.replace(/((?:<li class="md-li">.*?<\/li>\n?)+)/g, (_m) => {
+    return '<ul class="md-list">' + _m.replace(/\n/g, '') + '</ul>';
+  });
 
   // 引用块
   html = html.replace(/^> (.+)$/gm, '<blockquote class="md-blockquote"><p>$1</p></blockquote>');
-  html = html.replace(/<\/blockquote>\n<blockquote class="md-blockquote">/g, '\n');
+  html = html.replace(/<\/blockquote>\n<blockquote class="md-blockquote">/g, '');
 
-  // 换行
-  html = html.replace(/\n/g, '<br>');
+  // 换行处理：连续3+空行 → 2个换行（段落间距），单换行由 CSS white-space: pre-line 处理
+  html = html.replace(/\n{3,}/g, '\n\n').replace(/\n\n/g, '<br><br>');
 
   // 恢复代码块占位符
   codeBlocks.forEach((block, index) => {

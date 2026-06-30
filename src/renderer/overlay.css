@@ -620,6 +620,7 @@ body {
 .chat-messages {
   flex: 1;
   overflow-y: auto;
+  overflow-x: auto;
   padding: 12px 14px;
   display: flex;
   flex-direction: column;
@@ -627,12 +628,16 @@ body {
   min-height: 0;
 }
 
-.chat-messages::-webkit-scrollbar { width: 3px; }
+.chat-messages::-webkit-scrollbar { width: 3px; height: 3px; }
 .chat-messages::-webkit-scrollbar-track { background: transparent; }
 .chat-messages::-webkit-scrollbar-thumb {
-  background: rgba(255, 255, 255, 0.08);
+  background: rgba(255, 255, 255, 0.15);
   border-radius: 2px;
 }
+.chat-messages::-webkit-scrollbar-thumb:hover {
+  background: rgba(255, 255, 255, 0.3);
+}
+.chat-messages::-webkit-scrollbar-corner { background: transparent; }
 
 /* 空状态 */
 .empty-chat {
@@ -723,6 +728,7 @@ body {
   font-size: 13px;
   line-height: 1.6;
   word-break: break-word;
+  white-space: pre-line;
   transition: box-shadow 0.2s ease, transform 0.15s ease;
 }
 
