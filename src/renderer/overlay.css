@@ -725,10 +725,9 @@ body {
 .msg-bubble {
   padding: 7px 11px;
   border-radius: 11px;
-  font-size: 13px;
+  font-size: 12px;
   line-height: 1.6;
   word-break: break-word;
-  white-space: pre-line;
   transition: box-shadow 0.2s ease, transform 0.15s ease;
 }
 

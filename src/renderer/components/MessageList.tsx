@@ -112,13 +112,17 @@ function renderMessageContent(text: string): string {
   html = html.replace(/^> (.+)$/gm, '<blockquote class="md-blockquote"><p>$1</p></blockquote>');
   html = html.replace(/<\/blockquote>\n<blockquote class="md-blockquote">/g, '');
 
-  // 换行处理：连续3+空行 → 2个换行（段落间距），单换行由 CSS white-space: pre-line 处理
+  // 换行处理：Markdown 规范 —— 单换行忽略，双换行=段落，3+连续换行折叠
   html = html.replace(/\n{3,}/g, '\n\n').replace(/\n\n/g, '<br><br>');
 
   // 恢复代码块占位符
   codeBlocks.forEach((block, index) => {
     html = html.replace(`\x00CODEBLOCK_${index}\x00`, block);
   });
+
+  // 清理块级元素前后的多余 <br>（标题/列表/引用/代码块/表格/分隔线等自带 margin，不需要额外换行）
+  html = html.replace(/(<br>)+(\s*<(?:h[2-4]|ul|ol|blockquote|pre|table|hr|div)[ >])/gi, '$2');
+  html = html.replace(/(<\/(?:h[2-4]|ul|ol|blockquote|pre|table|hr|div)>)\s*(<br>)+/gi, '$1');
 
   return html;
 }
