@@ -20,12 +20,24 @@ function renderMessageContent(text: string): string {
     // Mermaid 图表：渲染为 SVG
     if (lang === 'mermaid') {
       const mermaidId = 'mermaid-' + Math.random().toString(36).slice(2, 10);
-      const blockHtml = `<div class="mermaid-block-wrapper"><div class="mermaid" id="${mermaidId}">${escapeHtml(trimmed)}</div></div>`;
+      const blockHtml = `<div class="mermaid-block-wrapper"><div class="mermaid" id="${mermaidId}">${trimmed}</div></div>`;
       // 延迟渲染 mermaid
       setTimeout(() => {
         try {
-          if (typeof (window as any).mermaid !== 'undefined') {
-            (window as any).mermaid.init(undefined, document.querySelectorAll(`#${mermaidId}`));
+          const mermaid = (window as any).mermaid;
+          if (typeof mermaid !== 'undefined') {
+            // 初始化 mermaid（如果还没初始化）
+            mermaid.initialize({ startOnLoad: false, theme: 'dark' });
+            const el = document.getElementById(mermaidId);
+            if (el) {
+              mermaid.render(mermaidId + '-svg', el.textContent || '').then((result: any) => {
+                el.innerHTML = result.svg;
+                el.removeAttribute('id');
+              }).catch((err: any) => {
+                console.error('Mermaid render error:', err);
+                el.innerHTML = '<span style="color:#ef4444;font-size:12px;">Mermaid 渲染失败</span>';
+              });
+            }
           }
         } catch (e) {
           console.error('Mermaid render error:', e);
@@ -55,7 +67,7 @@ function renderMessageContent(text: string): string {
     const codeWithLineNumbers = codeLines.map((line: string, i: number) =>
       `<div class="code-line-wrapper" data-line-num="${i + 1}"><span class="code-line-text">${line || ' '}</span></div>`
     ).join('');
-    const blockHtml = `<div class="code-block-wrapper">${label}<button class="code-copy-btn" onclick="copyCodeBlock(this)" title="复制代码"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="9" y="9" width="13" height="13" rx="2" ry="2"/><path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"/></svg></button><pre class="code-block"><code class="hljs code-with-lines">${codeWithLineNumbers}</code></pre></div>`;
+    const blockHtml = `<div class="code-block-wrapper">${label}<button class="code-copy-btn" onclick="copyCodeBlock(this)" title="复制代码"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="9" y="9" width="13" height="13" rx="2" ry="2"/><path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"/></svg></button><button class="code-toggle-btn" onclick="toggleCodeBlock(this)" title="折叠/展开"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="18 15 12 9 6 15"/></svg></button><div class="code-block-content"><pre class="code-block"><code class="hljs code-with-lines">${codeWithLineNumbers}</code></pre></div></div>`;
     codeBlocks.push(blockHtml);
     return `\x00CODEBLOCK_${codeBlocks.length - 1}\x00`;
   });
@@ -187,6 +199,16 @@ function copyCodeBlock(btn: HTMLElement) {
 
 // 暴露到全局，供 HTML onclick 使用
 (window as any).copyCodeBlock = copyCodeBlock;
+
+// 折叠/展开代码块
+function toggleCodeBlock(btn: HTMLElement) {
+  const wrapper = btn.closest('.code-block-wrapper');
+  if (!wrapper) return;
+  wrapper.classList.toggle('collapsed');
+}
+
+// 暴露到全局
+(window as any).toggleCodeBlock = toggleCodeBlock;
 
 // 判断是否需要显示时间（每3分钟显示一次）
 function shouldShowTime(currentMsg: any, prevMsg: any): boolean {
