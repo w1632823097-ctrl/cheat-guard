@@ -113,6 +113,15 @@ export default function ChatPanel() {
     }
   }, [isExpanded, currentSessionId, loadSessionHistory]);
 
+  // 面板展开时允许窗口获得焦点，收起时恢复不抢焦点
+  useEffect(() => {
+    if (isExpanded) {
+      window.electronAPI?.enableFocus();
+    } else {
+      window.electronAPI?.disableFocus();
+    }
+  }, [isExpanded]);
+
   // 快捷键支持
   useEffect(() => {
     const handleKeyDown = (e: KeyboardEvent) => {

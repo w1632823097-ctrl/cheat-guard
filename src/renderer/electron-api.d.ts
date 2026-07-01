@@ -46,6 +46,8 @@ interface ElectronAPI {
   onLLMChunk: (callback: (chunk: string) => void) => (() => void);
   onLLMDone: (callback: () => void) => (() => void);
   onOCRResult: (callback: (text: string) => void) => (() => void);
+  enableFocus: () => Promise<void>;
+  disableFocus: () => Promise<void>;
 }
 
 declare global {

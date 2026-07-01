@@ -1,5 +1,6 @@
 import * as fs from 'fs';
 import * as path from 'path';
+import * as os from 'os';
 import * as https from 'https';
 import * as http from 'http';
 import {
@@ -45,6 +46,33 @@ const DEFAULT_SYSTEM_PROMPT = `你是一个实时 AI 桌面助手 CheatGuard，�
 - 如果是知识性问题，给出准确答案
 - 始终保持专业和 helpful 的态度`;
 
+/** 获取配置文件路径（与 chat-store 一致，使用用户目录） */
+function getConfigPath(): string {
+  const dir = path.join(os.homedir(), '.cheat-guard');
+  if (!fs.existsSync(dir)) {
+    fs.mkdirSync(dir, { recursive: true });
+  }
+  return path.join(dir, 'config.json');
+}
+
+/** 确保配置文件存在，不存在则创建默认配置 */
+function ensureConfigFile(): string {
+  const configPath = getConfigPath();
+  if (!fs.existsSync(configPath)) {
+    const defaultConfig = {
+      llm: {
+        apiKey: '',
+        baseURL: 'https://api.openai.com/v1',
+        model: 'gpt-4o-mini',
+        models: [],
+      },
+    };
+    fs.writeFileSync(configPath, JSON.stringify(defaultConfig, null, 2), 'utf-8');
+    console.log('[LLM] Created default config.json at:', configPath);
+  }
+  return configPath;
+}
+
 function loadConfig(): LLMConfig {
   if (cachedConfig) return cachedConfig;
 
@@ -52,7 +80,9 @@ function loadConfig(): LLMConfig {
   const envBaseURL = process.env.OPENAI_BASE_URL || '';
   const envModel = process.env.LLM_MODEL || '';
 
+  // 优先使用用户目录的 config.json，其次尝试项目目录（开发模式）
   const searchPaths = [
+    getConfigPath(),
     path.join(process.cwd(), 'config.json'),
     path.join(__dirname, '..', '..', 'config.json'),
     path.join(__dirname, '..', 'config.json'),
@@ -154,17 +184,10 @@ export function getModel(): string {
   return getConfig().model;
 }
 
-// 查找 config.json 路径（与 loadConfig 中的搜索路径一致）
+// 查找 config.json 路径（优先用户目录，不存在则自动创建）
 function findConfigPath(): string | null {
-  const searchPaths = [
-    path.join(process.cwd(), 'config.json'),
-    path.join(__dirname, '..', '..', 'config.json'),
-    path.join(__dirname, '..', 'config.json'),
-  ];
-  for (const p of searchPaths) {
-    if (fs.existsSync(p)) return p;
-  }
-  return null;
+  const configPath = ensureConfigFile();
+  return configPath;
 }
 
 export function addModel(modelInfo: ModelInfo): { success: boolean; error?: string } {

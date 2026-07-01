@@ -59,6 +59,9 @@
       "src/renderer/**/*",
       "package.json"
     ],
+    "asarUnpack": [
+      "**/node_modules/@koromix/**/*"
+    ],
     "win": {
       "target": [
         {

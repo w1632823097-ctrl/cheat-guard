@@ -17,6 +17,11 @@ body {
   align-items: center;
   justify-content: flex-start;
   padding-top: 20px;
+  pointer-events: none;
+}
+
+.window-wrapper > * {
+  pointer-events: auto;
 }
 
 /* ===== 工具条 ===== */
@@ -350,6 +355,7 @@ body {
   flex-direction: column;
   transform: translateY(-8px) scale(0.97);
   transform-origin: top center;
+  pointer-events: none;
 }
 
 .chat-panel.expanded {
@@ -357,6 +363,12 @@ body {
   max-height: 400px;
   opacity: 1;
   transform: translateY(0) scale(1);
+  pointer-events: none;
+}
+
+/* 面板展开时，内部可交互元素恢复点击 */
+.chat-panel.expanded > * {
+  pointer-events: auto;
 }
 
 /* 面板头部 */

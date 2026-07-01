@@ -1,7 +1,7 @@
 import { app, BrowserWindow, globalShortcut, ipcMain, desktopCapturer, session } from 'electron';
 import * as path from 'path';
 import { chat, chatStream, clearSession, setApiConfig, getHistory, getAvailableModels, setModel, addModel, testModel, listSessions, newSession, deleteSession, renameSession, cancelActiveStream } from './llm/llm-service';
-import { setWindowInvisible, setNoActivateStyle, isWDAvailable } from './native/wda-wrapper';
+import { setWindowInvisible, setNoActivateStyle, removeNoActivateStyle, isWDAvailable } from './native/wda-wrapper';
 import { recognizeText, cleanupTempFiles, saveTempImage } from './ocr/ocr-service';
 import { startLogCleanupTimer } from './utils/security';
 import * as fs from 'fs';
@@ -470,6 +470,28 @@ function getErrorMessage(err: unknown): string {
   if (err instanceof Error) return err.message;
   return String(err);
 }
+
+// ============================================================
+// 窗口焦点控制（解决 WS_EX_NOACTIVATE 导致输入框无法输入）
+// ============================================================
+
+ipcMain.handle('window:enable-focus', async () => {
+  if (!overlayWindow) return;
+  if (process.platform === 'win32' && isWDAvailable()) {
+    const hwnd = overlayWindow.getNativeWindowHandle();
+    removeNoActivateStyle(hwnd);
+  }
+  // 无论 koffi 是否可用，都需要 focus 窗口
+  overlayWindow.focus();
+});
+
+ipcMain.handle('window:disable-focus', async () => {
+  if (!overlayWindow) return;
+  if (process.platform === 'win32' && isWDAvailable()) {
+    const hwnd = overlayWindow.getNativeWindowHandle();
+    setNoActivateStyle(hwnd);
+  }
+});
 
 ipcMain.handle('llm:chat', async (_event, sessionId: string, message: string, systemPrompt?: string): Promise<IPCResponse<string>> => {
   try {

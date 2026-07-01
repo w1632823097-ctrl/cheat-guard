@@ -111,4 +111,8 @@ contextBridge.exposeInMainWorld('electronAPI', {
     ipcRenderer.on('ocr:result', wrapper);
     return () => ipcRenderer.removeListener('ocr:result', wrapper);
   },
+
+  // 窗口焦点控制
+  enableFocus: () => ipcRenderer.invoke('window:enable-focus'),
+  disableFocus: () => ipcRenderer.invoke('window:disable-focus'),
 });

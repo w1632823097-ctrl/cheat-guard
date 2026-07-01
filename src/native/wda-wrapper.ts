@@ -115,3 +115,24 @@ export function setNoActivateStyle(hwndBuffer: Buffer): boolean {
     return false;
   }
 }
+
+/** 移除 WS_EX_NOACTIVATE 样式，让窗口可以获得焦点 */
+export function removeNoActivateStyle(hwndBuffer: Buffer): boolean {
+  if (!loadStyleFuncs()) return false;
+
+  try {
+    const hwnd = hwndBuffer.readBigInt64LE(0);
+
+    let exStyle = _GetWindowLongPtrW!(hwnd, GWL_EXSTYLE);
+    // 用位运算清除 NOACTIVATE 标志，保留 LAYERED
+    exStyle = (BigInt(exStyle) & ~BigInt(WS_EX_NOACTIVATE)) | BigInt(WS_EX_LAYERED);
+    _SetWindowLongPtrW!(hwnd, GWL_EXSTYLE, exStyle);
+
+    _SetWindowPos!(hwnd, 0n, 0, 0, 0, 0, SWP_FRAMECHANGED | SWP_NOMOVE | SWP_NOSIZE | SWP_NOZORDER | SWP_NOACTIVATE);
+
+    return true;
+  } catch (err) {
+    console.error('[WDA] Failed to remove no-activate style:', err);
+    return false;
+  }
+}
