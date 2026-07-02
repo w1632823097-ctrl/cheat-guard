@@ -23,7 +23,7 @@ function toggleOverlay() {
 function createOverlayWindow() {
   overlayWindow = new BrowserWindow({
     width: 420,
-    height: 600,
+    height: 80,
     x: 100,
     y: 100,
     frame: false,
