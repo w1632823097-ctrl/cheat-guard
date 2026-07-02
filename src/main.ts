@@ -444,10 +444,10 @@ ipcMain.on('set-overlay-height', (event, expanded: boolean) => {
   if (!overlayWindow) return;
   const currentBounds = overlayWindow.getBounds();
   if (expanded) {
-    // 展开状态：完整高度
+    // 展开状态：完整高度（toolbar ~60px + chat-panel 400px + padding 20px + margin 4px）
     overlayWindow.setBounds({
       ...currentBounds,
-      height: 600,
+      height: 500,
     });
   } else {
     // 收起状态：只保留 toolbar 区域（约 60px padding + toolbar）

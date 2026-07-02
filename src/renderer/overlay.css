@@ -356,11 +356,12 @@ body {
   transform: translateY(-8px) scale(0.97);
   transform-origin: top center;
   pointer-events: none;
+  flex: 1;
 }
 
 .chat-panel.expanded {
-  height: 400px;
-  max-height: 400px;
+  height: auto;
+  max-height: none;
   opacity: 1;
   transform: translateY(0) scale(1);
   pointer-events: none;
