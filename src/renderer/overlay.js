@@ -892,6 +892,13 @@ if (window.electronAPI) {
   window.electronAPI.on('update-text', (text) => {
     addMessage('assistant', text);
   });
+
+  // 启动时自动展开窗口
+  window.electronAPI.on('auto-expand', () => {
+    if (!isExpanded) {
+      askBtn.click();
+    }
+  });
 }
 
 // 接收 OCR 结果

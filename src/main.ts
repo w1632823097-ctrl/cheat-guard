@@ -23,7 +23,7 @@ function toggleOverlay() {
 function createOverlayWindow() {
   overlayWindow = new BrowserWindow({
     width: 420,
-    height: 80,
+    height: 480,
     x: 100,
     y: 100,
     frame: false,
@@ -112,6 +112,11 @@ function createOverlayWindow() {
     overlayWindow?.showInactive();
     overlayWindow?.setTitle('');
     overlayWindow?.setSkipTaskbar(true);
+
+    // 启动时自动展开窗口
+    setTimeout(() => {
+      overlayWindow?.webContents.send('auto-expand');
+    }, 500);
   });
 
   overlayWindow.on('closed', () => { overlayWindow = null; });
@@ -356,9 +361,12 @@ ipcMain.on('quit-app', () => {
 });
 
 ipcMain.on('focus-input', () => {
-  if (overlayWindow) {
-    overlayWindow.focus();
+  if (!overlayWindow) return;
+  if (process.platform === 'win32' && isWDAvailable()) {
+    const hwnd = overlayWindow.getNativeWindowHandle();
+    removeNoActivateStyle(hwnd);
   }
+  overlayWindow.focus();
 });
 
 ipcMain.on('blur-input', () => {

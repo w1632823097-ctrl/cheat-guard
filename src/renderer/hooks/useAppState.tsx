@@ -278,6 +278,17 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
     const unsubFull = window.electronAPI?.onTranscriptionFull(handleTranscriptionFull);
     const unsubASR = window.electronAPI?.onASRStateChange(handleASRStateChange);
 
+    // 监听启动时自动展开窗口
+    const unsubAutoExpand = window.electronAPI?.on('auto-expand', () => {
+      setIsExpanded(true);
+      if (window.electronAPI) {
+        window.electronAPI.send('set-overlay-height', true);
+        setTimeout(() => {
+          window.electronAPI?.send('focus-input');
+        }, 350);
+      }
+    });
+
     return () => {
       unsubChunk?.();
       unsubDone?.();
@@ -285,6 +296,7 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
       unsubUpdate?.();
       unsubFull?.();
       unsubASR?.();
+      unsubAutoExpand?.();
     };
   }, []);
 
