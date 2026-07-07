@@ -115,4 +115,26 @@ contextBridge.exposeInMainWorld('electronAPI', {
   // 窗口焦点控制
   enableFocus: () => ipcRenderer.invoke('window:enable-focus'),
   disableFocus: () => ipcRenderer.invoke('window:disable-focus'),
+
+  // 自动更新
+  updater: {
+    check: () => ipcRenderer.send('updater:check'),
+    download: () => ipcRenderer.send('updater:download'),
+    install: () => ipcRenderer.send('updater:install'),
+    onUpdateAvailable: (cb: (info: { version: string }) => void) => {
+      const wrapper = (_e: Electron.IpcRendererEvent, info: { version: string }) => cb(info);
+      ipcRenderer.on('updater:update-available', wrapper);
+      return () => ipcRenderer.removeListener('updater:update-available', wrapper);
+    },
+    onDownloadProgress: (cb: (percent: number) => void) => {
+      const wrapper = (_e: Electron.IpcRendererEvent, percent: number) => cb(percent);
+      ipcRenderer.on('updater:download-progress', wrapper);
+      return () => ipcRenderer.removeListener('updater:download-progress', wrapper);
+    },
+    onUpdateDownloaded: (cb: (info: { version: string }) => void) => {
+      const wrapper = (_e: Electron.IpcRendererEvent, info: { version: string }) => cb(info);
+      ipcRenderer.on('updater:update-downloaded', wrapper);
+      return () => ipcRenderer.removeListener('updater:update-downloaded', wrapper);
+    },
+  },
 });

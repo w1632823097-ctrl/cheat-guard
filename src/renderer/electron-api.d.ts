@@ -48,6 +48,14 @@ interface ElectronAPI {
   onOCRResult: (callback: (text: string) => void) => (() => void);
   enableFocus: () => Promise<void>;
   disableFocus: () => Promise<void>;
+  updater: {
+    check: () => void;
+    download: () => void;
+    install: () => void;
+    onUpdateAvailable: (cb: (info: { version: string }) => void) => (() => void);
+    onDownloadProgress: (cb: (percent: number) => void) => (() => void);
+    onUpdateDownloaded: (cb: (info: { version: string }) => void) => (() => void);
+  };
 }
 
 declare global {

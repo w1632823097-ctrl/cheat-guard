@@ -4,6 +4,7 @@ import { chat, chatStream, clearSession, setApiConfig, getHistory, getAvailableM
 import { setWindowInvisible, setNoActivateStyle, removeNoActivateStyle, isWDAvailable } from './native/wda-wrapper';
 import { recognizeText, cleanupTempFiles, saveTempImage } from './ocr/ocr-service';
 import { startLogCleanupTimer } from './utils/security';
+import { initAutoUpdater } from './updater/auto-updater';
 import * as fs from 'fs';
 import * as os from 'os';
 
@@ -304,6 +305,11 @@ app.whenReady().then(async () => {
   startLogCleanupTimer();
 
   createOverlayWindow();
+
+  // 初始化自动更新
+  if (overlayWindow) {
+    initAutoUpdater(overlayWindow);
+  }
 
   try {
     const { initAudioCapture } = await import('./audio/audio-capture');

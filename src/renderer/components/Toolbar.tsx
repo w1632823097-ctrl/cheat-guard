@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { useApp } from '../hooks/useAppState';
 
 export default function Toolbar() {
@@ -11,6 +11,30 @@ export default function Toolbar() {
   } = useApp();
 
   const [isLoadingHistory, setIsLoadingHistory] = useState(false);
+
+  // 自动更新状态
+  const [updateInfo, setUpdateInfo] = useState<{ version: string } | null>(null);
+  const [downloadPercent, setDownloadPercent] = useState<number | null>(null);
+  const [updateReady, setUpdateReady] = useState(false);
+
+  useEffect(() => {
+    const unsub1 = window.electronAPI?.updater?.onUpdateAvailable((info) => {
+      setUpdateInfo(info);
+    });
+    const unsub2 = window.electronAPI?.updater?.onDownloadProgress((percent) => {
+      setDownloadPercent(percent);
+    });
+    const unsub3 = window.electronAPI?.updater?.onUpdateDownloaded((info) => {
+      setDownloadPercent(null);
+      setUpdateReady(true);
+      setUpdateInfo(info);
+    });
+    return () => {
+      unsub1?.();
+      unsub2?.();
+      unsub3?.();
+    };
+  }, []);
 
   const handleAskToggle = () => {
     const newExpanded = !isExpanded;
@@ -31,7 +55,8 @@ export default function Toolbar() {
   const handleMouseDown = (e: React.MouseEvent) => {
     if ((e.target as HTMLElement).closest('.ask-btn') || 
         (e.target as HTMLElement).closest('.close-btn') || 
-        (e.target as HTMLElement).closest('.record-btn')) return;
+        (e.target as HTMLElement).closest('.record-btn') ||
+        (e.target as HTMLElement).closest('.update-btn')) return;
     setIsDragging(true);
     if (window.electronAPI) {
       window.electronAPI.send('start-drag');
@@ -65,6 +90,31 @@ export default function Toolbar() {
       <button className="ask-btn" onClick={handleAskToggle}>
         <span id="askText">{isExpanded ? 'Hide' : 'Ask'}</span>
       </button>
+
+      {/* 更新提示区域 */}
+      {updateReady && (
+        <button
+          className="update-btn update-btn--ready"
+          onClick={() => window.electronAPI?.updater?.install()}
+          title={`v${updateInfo?.version} 已下载完成，点击重启安装`}
+        >
+          重启更新
+        </button>
+      )}
+      {!updateReady && downloadPercent !== null && (
+        <span className="update-btn update-btn--downloading">
+          {downloadPercent}%
+        </span>
+      )}
+      {!updateReady && downloadPercent === null && updateInfo && (
+        <button
+          className="update-btn update-btn--available"
+          onClick={() => window.electronAPI?.updater?.download()}
+          title={`发现新版本 v${updateInfo.version}，点击下载`}
+        >
+          有更新
+        </button>
+      )}
 
       {/* 关闭按钮 */}
       <button

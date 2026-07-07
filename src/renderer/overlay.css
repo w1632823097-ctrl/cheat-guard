@@ -301,6 +301,54 @@ body {
 
 .close-btn:hover svg { color: #f87171; }
 
+/* 自动更新按钮 */
+.update-btn {
+  -webkit-app-region: no-drag;
+  padding: 0 8px;
+  height: 22px;
+  border-radius: 6px;
+  font-size: 11px;
+  font-weight: 600;
+  cursor: pointer;
+  border: none;
+  outline: none;
+  font-family: inherit;
+  transition: opacity 0.15s;
+  flex-shrink: 0;
+}
+.update-btn:active { opacity: 0.7; }
+
+.update-btn--available {
+  background: rgba(99, 102, 241, 0.25);
+  color: #a5b4fc;
+  border: 1px solid rgba(99, 102, 241, 0.4);
+}
+.update-btn--available:hover {
+  background: rgba(99, 102, 241, 0.4);
+}
+
+.update-btn--downloading {
+  background: rgba(245, 158, 11, 0.15);
+  color: rgba(252, 211, 77, 0.9);
+  border: 1px solid rgba(245, 158, 11, 0.25);
+  cursor: default;
+}
+
+.update-btn--ready {
+  background: rgba(34, 197, 94, 0.2);
+  color: #86efac;
+  border: 1px solid rgba(34, 197, 94, 0.35);
+  animation: updatePulse 2s ease-in-out infinite;
+}
+.update-btn--ready:hover {
+  background: rgba(34, 197, 94, 0.35);
+}
+
+@keyframes updatePulse {
+  0%, 100% { box-shadow: none; }
+  50% { box-shadow: 0 0 0 3px rgba(34, 197, 94, 0.1); }
+}
+
 /* 透明度滑块 */
 .opacity-control {
   display: flex;
