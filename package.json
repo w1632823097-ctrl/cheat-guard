@@ -23,7 +23,7 @@
     "assistant"
   ],
   "author": "",
-  "license": "ISC",
+  "license": "AGPL-3.0",
   "devDependencies": {
     "@playwright/test": "^1.61.1",
     "@types/node": "^20.0.0",
