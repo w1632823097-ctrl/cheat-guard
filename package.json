@@ -66,23 +66,15 @@
     "win": {
       "target": [
         {
-          "target": "nsis",
+          "target": "portable",
           "arch": [
             "x64"
           ]
         }
       ],
-      "artifactName": "CheatGuard-Setup-${version}.${ext}",
+      "artifactName": "CheatGuard-${version}.${ext}",
       "signAndEditExecutable": false,
       "sign": null
-    },
-    "nsis": {
-      "oneClick": false,
-      "perMachine": false,
-      "allowToChangeInstallationDirectory": true,
-      "createDesktopShortcut": true,
-      "createStartMenuShortcut": true,
-      "shortcutName": "CheatGuard"
     },
     "mac": {
       "target": "dmg"

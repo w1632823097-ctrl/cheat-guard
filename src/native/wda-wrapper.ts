@@ -128,7 +128,9 @@ export function removeNoActivateStyle(hwndBuffer: Buffer): boolean {
     exStyle = (BigInt(exStyle) & ~BigInt(WS_EX_NOACTIVATE)) | BigInt(WS_EX_LAYERED);
     _SetWindowLongPtrW!(hwnd, GWL_EXSTYLE, exStyle);
 
-    _SetWindowPos!(hwnd, 0n, 0, 0, 0, 0, SWP_FRAMECHANGED | SWP_NOMOVE | SWP_NOSIZE | SWP_NOZORDER | SWP_NOACTIVATE);
+    // 不使用 SWP_FRAMECHANGED，避免触发 WM_NCCALCSIZE 重绘边框（白条）
+    // WS_EX_NOACTIVATE 的移除不需要重新计算窗口框架即可生效
+    _SetWindowPos!(hwnd, 0n, 0, 0, 0, 0, SWP_NOMOVE | SWP_NOSIZE | SWP_NOZORDER | SWP_NOACTIVATE);
 
     return true;
   } catch (err) {

@@ -50,21 +50,31 @@ function createOverlayWindow() {
   // 加载渲染进程页面
   // 优先尝试 Vite 开发服务器（热更新），否则使用构建产物
   const isDev = !app.isPackaged;
+  const builtHtml = path.join(__dirname, '..', 'dist', 'renderer', 'index.html');
   if (isDev) {
-    // 尝试连接 Vite 开发服务器
-    const http = require('http');
-    http.get('http://localhost:5173', (res: any) => {
-      if (res.statusCode === 200) {
+    // 尝试连接 Vite 开发服务器，200ms 超时则回退到构建产物
+    const checkDevServer = new Promise<boolean>((resolve) => {
+      const http = require('http');
+      const req = http.get('http://localhost:5173', (res: any) => {
+        res.destroy();
+        resolve(res.statusCode === 200);
+      });
+      req.on('error', () => resolve(false));
+      req.setTimeout(200, () => {
+        req.destroy();
+        resolve(false);
+      });
+    });
+    checkDevServer.then((ok) => {
+      if (ok) {
         overlayWindow?.loadURL('http://localhost:5173');
       } else {
-        overlayWindow?.loadFile(path.join(__dirname, '..', 'dist', 'renderer', 'index.html'));
+        console.warn('[Main] Vite dev server not running, falling back to built files');
+        overlayWindow?.loadFile(builtHtml);
       }
-    }).on('error', () => {
-      console.warn('[Main] Vite dev server not running, falling back to built files');
-      overlayWindow?.loadFile(path.join(__dirname, '..', 'dist', 'renderer', 'index.html'));
     });
   } else {
-    overlayWindow.loadFile(path.join(__dirname, '..', 'dist', 'renderer', 'index.html'));
+    overlayWindow.loadFile(builtHtml);
   }
   overlayWindow.setVisibleOnAllWorkspaces(true);
   overlayWindow.setMenuBarVisibility(false);
@@ -120,7 +130,10 @@ function createOverlayWindow() {
     }, 500);
   });
 
-  overlayWindow.on('closed', () => { overlayWindow = null; });
+  overlayWindow.on('closed', () => {
+    clearDragInterval();
+    overlayWindow = null;
+  });
 }
 
 // ============================================================
@@ -306,19 +319,19 @@ app.whenReady().then(async () => {
 
   createOverlayWindow();
 
-  // 初始化自动更新
+  // 初始化自动更新（内部已有 10s 延迟检查，不阻塞启动）
   if (overlayWindow) {
     initAutoUpdater(overlayWindow);
   }
 
-  try {
-    const { initAudioCapture } = await import('./audio/audio-capture');
-    if (overlayWindow) {
-      initAudioCapture(overlayWindow);
-    }
-  } catch (err) {
-    console.warn('[Audio] Failed to initialize audio capture:', err);
-  }
+  // 音频模块 fire-and-forget：动态加载，不阻塞主流程
+  import('./audio/audio-capture')
+    .then(({ initAudioCapture }) => {
+      if (overlayWindow) {
+        initAudioCapture(overlayWindow);
+      }
+    })
+    .catch((err) => console.warn('[Audio] Failed to initialize audio capture:', err));
 
   globalShortcut.register('CommandOrControl+Enter', () => {
     if (overlayWindow) {
